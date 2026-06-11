@@ -1,0 +1,10 @@
+# Output generati
+output/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store

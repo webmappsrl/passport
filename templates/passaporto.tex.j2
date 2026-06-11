@@ -1,0 +1,141 @@
+%% ============================================================
+%% Passaporto del Camminatore — Sentiero Italia CAI
+%% Documento A6 sequenziale (105 x 148 mm).
+%% L'imposizione 2x2 su A4 fronte/retro è gestita a valle
+%% dallo script Python (pypdf) — design e imposizione separati.
+%% ============================================================
+\documentclass[10pt]{article}
+\usepackage[paperwidth=105mm, paperheight=148mm, margin=0pt]{geometry}
+\usepackage{fontspec}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usepackage{microtype}
+\usepackage{truncate}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+
+% ---- Colori ----
+\definecolor{caiblu}{HTML}{1B3569}
+\definecolor{cailogoblu}{HTML}{0A4484}
+\definecolor{caiblulight}{HTML}{7A9CC5}
+\definecolor{bianco}{HTML}{FFFFFF}
+\definecolor{grigiochiarotesto}{HTML}{6B6B6B}
+\definecolor{grigiolinea}{HTML}{CCCCCC}
+\definecolor{testoprimario}{HTML}{2B2B2B}
+
+% ---- Font ----
+\setmainfont{Montserrat}[
+  Path           = ((( font_path ))),
+  UprightFont    = *-Regular,
+  BoldFont       = *-Bold,
+  ItalicFont     = *-Italic,
+  BoldItalicFont = *-BoldItalic,
+]
+
+% ---- Header pagine interne (timbri / note) ----
+% #1 = etichetta destra (es. "Tappe 1–6" oppure "Note")
+\newcommand{\pageheader}[1]{%
+  \fill[caiblu] (0,0) rectangle (105mm,-14mm);
+  \node[anchor=west, text=bianco, inner sep=0pt]
+    at (5mm,-7mm) {\fontsize{9}{11}\selectfont\bfseries ((( regione_nome )))};
+  \node[anchor=center, text=bianco, opacity=0.55, inner sep=0pt]
+    at (52.5mm,-7mm) {\fontsize{7}{9}\selectfont Sentiero Italia CAI};
+  \node[anchor=east, text=bianco, opacity=0.70, inner sep=0pt]
+    at (100mm,-7mm) {\fontsize{8}{10}\selectfont #1};
+}
+
+\begin{document}
+
+%% ── PAGINA 1: COPERTINA ─────────────────────────────────────
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+  % sfondo pieno
+  \fill[caiblu] (0,0) rectangle (105mm,-148mm);
+
+  % loghi affiancati, blocco allineato a destra (bordo dx a 99mm), top 14mm
+  % sinistra: CAI — destra: SICAI
+  \node[anchor=north east, inner sep=0pt] (logosi) at (99mm,-14mm)
+    {\includegraphics[height=16mm]{((( asset_path )))logo_sicai.png}};
+  \node[anchor=north east, inner sep=0pt] at ([xshift=-6mm]logosi.north west)
+    {\includegraphics[height=16mm]{((( asset_path )))logo_cai.png}};
+
+  % box PASSAPORTO (7mm sotto i loghi: -14 -16 -7 = -37mm)
+  \fill[bianco, rounded corners=2mm] (49mm,-37mm) rectangle (99mm,-47mm);
+  \node[anchor=center, text=caiblu, inner sep=0pt] at (74mm,-42mm)
+    {\fontsize{11}{13}\selectfont\bfseries PASSAPORTO};
+
+  % titolo (5mm sotto il box)
+  \node[anchor=north east, align=right, text=bianco, inner sep=0pt,
+        font=\fontsize{17}{18.7}\selectfont\bfseries]
+    at (99mm,-52mm)
+    {SENTIERO\\ITALIA CAI};
+
+  % nome regione/i (5mm sotto il titolo)
+  \node[anchor=north east, align=right, text=bianco, opacity=0.80, inner sep=0pt]
+    at (99mm,-70.5mm)
+    {\fontsize{10}{13}\selectfont ((( regione_nome )))};
+
+  % url in basso a sinistra
+  \node[anchor=south west, text=bianco, opacity=0.60, inner sep=0pt]
+    at (6mm,-143mm)
+    {\fontsize{7}{9}\selectfont www.sentieroitalia.cai.it};
+\end{tikzpicture}
+
+%% ── PAGINA 2: RETRO COPERTINA ───────────────────────────────
+\newpage
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+  \fill[caiblu] (0,0) rectangle (105mm,-148mm);
+  % mappa SICAI in filigrana, interamente contenuta nella pagina A6
+  \node[anchor=center, inner sep=0pt, opacity=0.10] at (52.5mm,-74mm)
+    {\includegraphics[width=95mm]{((( asset_path )))mappa_sicai_nobg.png}};
+  % testo sovrapposto
+  \node[anchor=north west, inner sep=0pt, text width=70mm,
+        align=justify, text=bianco,
+        font=\fontsize{9.5}{14}\selectfont]
+    at (18mm,-28mm)
+    {Che tu sia un escursionista esperto o un principiante, il Sentiero
+     Italia ha qualcosa da offrire a tutti.\\[4mm]
+     \raggedright Scopri le tappe, prepara il tuo zaino e inizia la tua
+     avventura\\nel cuore del Bel Paese.\par};
+\end{tikzpicture}
+
+%% ── PAGINE TIMBRI ───────────────────────────────────────────
+((* for pagina in pagine_timbri *))
+\newpage
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+  \pageheader{Tappe ((( pagina.ref_da )))--((( pagina.ref_a )))}
+
+  % griglia 3x2 (celle 35 x 67 mm) sotto l'header
+  ((* for cella in pagina.celle *))
+  ((* set cx = (loop.index0 % 3) * 35 *))
+  ((* set cy = 14 + (loop.index0 // 3) * 67 *))
+  ((* if cella.tappa *))
+  % bordo cella
+  \draw[grigiolinea, line width=0.4pt]
+    ({((( cx )))mm}, {-((( cy )))mm}) rectangle ++(35mm,-67mm);
+  % zona timbro tratteggiata (ampliata: la zona info contiene solo numero e ref)
+  \draw[grigiolinea, line width=0.5pt, dashed]
+    ({((( cx )))mm + 3mm}, {-((( cy )))mm - 12mm}) rectangle ++(29mm,-52mm);
+  % zona info tappa: solo il ref/nome della tappa, nel colore dell'header
+  \node[anchor=north west, inner sep=0pt, text width=29mm]
+    at ({((( cx )))mm + 3mm}, {-((( cy )))mm - 3.5mm})
+    {\fontsize{9}{11}\selectfont\bfseries\color{caiblu}\truncate{29mm}{((( cella.tappa.ref )))}};
+  ((* endif *))
+  ((* endfor *))
+\end{tikzpicture}
+((* endfor *))
+
+%% ── PAGINE NOTE (riempimento fino a multiplo di 4) ──────────
+((* for _ in range(pagine_note) *))
+\newpage
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+  \pageheader{Note}
+  \foreach \i in {1,...,14} {
+    \draw[grigiolinea, line width=0.3pt]
+      (6mm, -14mm - 8mm - \i*8mm) -- (99mm, -14mm - 8mm - \i*8mm);
+  }
+\end{tikzpicture}
+((* endfor *))
+
+\end{document}
