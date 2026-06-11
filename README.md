@@ -25,6 +25,37 @@ Per ogni gruppo vengono prodotti tre PDF in `output/`:
 | `passaporto_<gruppo>_A4_stampa.pdf` (o `_A5_stampa.pdf` per Valle d'Aosta) | imposizione fronte/retro **senza margini** (al vivo, per tipografia) |
 | `passaporto_<gruppo>_A4_stampa_margini.pdf` (o `_A5_...`) | stessa imposizione **con margini di stampa** (5 mm, contenuto scalato e centrato — per stampanti non borderless; costante `MARGINE_STAMPA_MM`) |
 
+## Raccoglitore del Camminatore
+
+Oltre ai passaporti è disponibile un **raccoglitore** che ogni
+camminatore conserva insieme ai singoli passaporti: un foglio
+**A5 landscape (210×148 mm) fronte/retro** che, piegato in due lungo la
+piega verticale centrale, diventa un libretto **A6** a 4 facciate
+(stesso meccanismo del passaporto Valle d'Aosta).
+
+```bash
+pip install cairosvg   # conversione QR SVG → PNG per XeLaTeX
+python genera_raccoglitore.py
+```
+
+Produce in `output/`: `raccoglitore_A6.pdf`,
+`raccoglitore_A5_stampa.pdf` (al vivo) e
+`raccoglitore_A5_stampa_margini.pdf` (margini 5 mm).
+
+Le 4 facciate logiche (ordine sequenziale A6, imposte con
+`imponi_su_a5`):
+
+| # | Facciata | Posizione | Contenuto |
+|---|---|---|---|
+| 1 | Copertina | esterno, fronte destra | stile copertina passaporto; box bianco centrale per il **numero identificativo** compilato a mano |
+| 2 | Presentazione | interno sinistra | campi **Nome** e **Cognome**, riquadro 35×45 mm per la **foto tessera**, linea per la **firma** |
+| 3 | Cos'è il SICAI | interno destra | testo descrittivo del progetto + badge store e **QR code** app Android/iOS |
+| 4 | Mappa del SICAI | esterno, retro copertina | testo introduttivo + placeholder **mappa dell'intero percorso** |
+
+Template:
+`templates/raccoglitore.tex.j2`. I QR code sono convertiti da SVG a PNG
+a build-time (`cairosvg`) perché XeLaTeX non include direttamente gli SVG.
+
 ## Raggruppamenti (costante `GRUPPI`)
 
 | # | Gruppo | Regioni | Formato foglio | Tappe | Pag. timbri | Note |
@@ -55,6 +86,13 @@ riquadro tratteggiato (testo centrato, a capo automatico) compaiono
 **inizio**, **arrivo**, **km**, **dislivello positivo** e **dislivello negativo**;
 i campi senza dato non vengono mostrati.
 
+La **copertina** riporta, sotto il nome del passaporto, le statistiche
+aggregate per ogni regione del gruppo: numero di tappe, chilometri
+totali, dislivello positivo e negativo totali (es.
+`20 tappe · 236,7 km · +17.656 m / −18.632 m`). Nei passaporti
+monoregione con nome coincidente col gruppo il nome regione non viene
+ripetuto sopra la riga statistiche.
+
 Ogni pagina timbri ospita **12 timbri quadrati** (griglia 3 colonne × 4
 righe sotto l'header da 14 mm). Capacità di un foglio A4: copertina +
 7 pagine timbri = **84 tappe max**. La pagina mappa (vecchio retro
@@ -65,8 +103,10 @@ copertina) è stata rimossa per liberare uno slot timbri nel foglio.
 ```
 progetto/
 ├── genera_passaporto.py             # pipeline completa + GRUPPI
+├── genera_raccoglitore.py           # raccoglitore A5→A6 (riusa la pipeline)
 ├── tappe.xlsx    # fonte dati (sviluppo; in prod: PostgreSQL)
 ├── templates/passaporto.tex.j2      # template LaTeX (delimitatori ((( ))) / ((* *)))
+├── templates/raccoglitore.tex.j2    # template LaTeX del raccoglitore
 ├── assets/logo_cai.png              # ritagliato e con sfondo trasparente
 ├── assets/logo_sicai.png            # logo Sentiero Italia / SICAI
 └── fonts/Montserrat-*.ttf

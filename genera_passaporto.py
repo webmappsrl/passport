@@ -174,6 +174,10 @@ def carica_tappe(regioni: list[str], excel_path: Path = EXCEL_PATH) -> list[dict
             "dislivello": str(int(row["ascent"])) if pd.notna(row["ascent"]) else None,
             "discesa": str(int(row["descent"])) if pd.notna(row["descent"]) else None,
             "difficolta": str(row["cai_scale"]).strip() if pd.notna(row["cai_scale"]) else "n.d.",
+            # valori numerici grezzi per gli aggregati di copertina
+            "km_val": float(row["distance"]) if pd.notna(row["distance"]) else 0.0,
+            "ascent_val": int(row["ascent"]) if pd.notna(row["ascent"]) else 0,
+            "descent_val": int(row["descent"]) if pd.notna(row["descent"]) else 0,
         })
     return tappe
 
@@ -229,9 +233,26 @@ def costruisci_contesto(gruppo_nome: str, regioni: list[str], tappe: list[dict])
     if not (len(regioni) == 1 and gruppo_nome == regioni[0]):
         regioni_nome = " · ".join(regioni)
 
+    # statistiche aggregate per regione (copertina), nell'ordine di GRUPPI
+    def _fmt_int(n: int) -> str:
+        return f"{n:,}".replace(",", ".")
+
+    statistiche_regioni = []
+    for regione in regioni:
+        t_reg = [t for t in tappe if t["regione"] == regione]
+        statistiche_regioni.append({
+            "regione": regione,
+            "tappe": len(t_reg),
+            "km": f"{sum(t['km_val'] for t in t_reg):,.1f}"
+                  .replace(",", "X").replace(".", ",").replace("X", "."),
+            "dislivello": _fmt_int(sum(t["ascent_val"] for t in t_reg)),
+            "discesa": _fmt_int(sum(t["descent_val"] for t in t_reg)),
+        })
+
     return {
         "gruppo_nome": gruppo_nome,
         "regioni_nome": regioni_nome,
+        "statistiche_regioni": statistiche_regioni,
         "pagine_timbri": pagine_timbri,
         "totale_tappe": len(tappe),
         "pagine_note": pagine_note,
@@ -240,7 +261,7 @@ def costruisci_contesto(gruppo_nome: str, regioni: list[str], tappe: list[dict])
     }
 
 
-def renderizza_tex(context: dict) -> str:
+def renderizza_tex(context: dict, template: str = "passaporto.tex.j2") -> str:
     env = jinja2.Environment(
         loader=jinja2.FileSystemLoader(str(TEMPLATE_DIR)),
         block_start_string="((*", block_end_string="*))",
@@ -250,7 +271,7 @@ def renderizza_tex(context: dict) -> str:
         undefined=jinja2.StrictUndefined,
         finalize=lambda v: latex_escape(v) if isinstance(v, str) else v,
     )
-    return env.get_template("passaporto.tex.j2").render(**context)
+    return env.get_template(template).render(**context)
 
 
 # ----------------------------------------------------------------------

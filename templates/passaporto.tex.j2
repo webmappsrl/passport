@@ -76,13 +76,14 @@
     at (99mm,-70.5mm)
     {\fontsize{12}{15}\selectfont\bfseries ((( gruppo_nome )))};
 
-  % elenco regioni del gruppo (omesso se ridondante con il nome del passaporto)
-  ((* if regioni_nome *))
-  \node[anchor=north east, align=right, text=bianco, opacity=0.75,
-        inner sep=0pt, text width=90mm]
-    at (99mm,-77.5mm)
-    {\fontsize{8}{11}\selectfont ((( regioni_nome )))};
-  ((* endif *))
+  % statistiche aggregate per regione (tappe, km, dislivelli)
+  ((* for stat in statistiche_regioni *))
+  \node[anchor=north east, align=right, text=bianco, inner sep=0pt,
+        font=\fontsize{6}{7.5}\selectfont]
+    at (99mm, {-78mm - ((( loop.index0 * 7 )))mm})
+    {((* if regioni_nome *)){\bfseries ((( stat.regione )))}\\((* endif *))
+     {\color{caiblulight}((( stat.tappe ))) tappe~·~((( stat.km ))) km~·~+((( stat.dislivello ))) m~/~--((( stat.discesa ))) m}};
+  ((* endfor *))
 
   % url in basso a sinistra
   \node[anchor=south west, text=bianco, opacity=0.60, inner sep=0pt]

@@ -1,0 +1,181 @@
+%% ============================================================
+%% Raccoglitore del Camminatore — Sentiero Italia CAI
+%% Documento A6 sequenziale (105 x 148 mm), 4 facciate logiche.
+%% L'imposizione 2x1 su A5 landscape fronte/retro è gestita a
+%% valle dallo script Python (pypdf) — come il passaporto
+%% Valle d'Aosta. Ordine pagine:
+%%   1 copertina · 2 presentazione · 3 cos'è il SICAI · 4 mappa
+%% ============================================================
+\documentclass[10pt]{article}
+\usepackage[paperwidth=105mm, paperheight=148mm, margin=0pt]{geometry}
+\usepackage{fontspec}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{positioning,calc}
+\usepackage{microtype}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+
+% niente sillabazione in tutto il raccoglitore (testi brevi, giustificati):
+% impostazione globale, le assegnazioni dentro i nodi TikZ non sono affidabili
+\hyphenpenalty=10000
+\exhyphenpenalty=10000
+\tolerance=9999
+\emergencystretch=3em
+
+% ---- Colori ----
+\definecolor{caiblu}{HTML}{1B3569}
+\definecolor{cailogoblu}{HTML}{0A4484}
+\definecolor{caiblulight}{HTML}{7A9CC5}
+\definecolor{bianco}{HTML}{FFFFFF}
+\definecolor{grigiochiarotesto}{HTML}{6B6B6B}
+\definecolor{grigiolinea}{HTML}{CCCCCC}
+\definecolor{testoprimario}{HTML}{2B2B2B}
+
+% ---- Font ----
+\setmainfont{Montserrat}[
+  Path           = ((( font_path ))),
+  UprightFont    = *-Regular,
+  BoldFont       = *-Bold,
+  ItalicFont     = *-Italic,
+  BoldItalicFont = *-BoldItalic,
+]
+
+% ---- Header pagine interne ----
+% #1 = titolo sezione (es. "Presentazione")
+\newcommand{\pageheader}[1]{%
+  \fill[caiblu] (0,0) rectangle (105mm,-14mm);
+  \node[anchor=west, text=bianco, inner sep=0pt]
+    at (5mm,-7mm) {\fontsize{9}{11}\selectfont\bfseries #1};
+  \node[anchor=east, text=bianco, opacity=0.55, inner sep=0pt]
+    at (100mm,-7mm) {\fontsize{7}{9}\selectfont Sentiero Italia CAI};
+}
+
+\begin{document}
+
+%% ── PAGINA 1: COPERTINA (esterno, fronte destra) ────────────
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+  % sfondo pieno
+  \fill[caiblu] (0,0) rectangle (105mm,-148mm);
+
+  % loghi affiancati, blocco allineato a destra (bordo dx a 99mm), top 14mm
+  % sinistra: CAI — destra: SICAI
+  \node[anchor=north east, inner sep=0pt] (logosi) at (99mm,-14mm)
+    {\includegraphics[height=16mm]{((( asset_path )))logo_sicai.png}};
+  \node[anchor=north east, inner sep=0pt] at ([xshift=-6mm]logosi.north west)
+    {\includegraphics[height=16mm]{((( asset_path )))logo_cai.png}};
+
+  % box PASSAPORTO (7mm sotto i loghi: -14 -16 -7 = -37mm)
+  \fill[bianco, rounded corners=2mm] (49mm,-37mm) rectangle (99mm,-47mm);
+  \node[anchor=center, text=caiblu, inner sep=0pt] at (74mm,-42mm)
+    {\fontsize{11}{13}\selectfont\bfseries PASSAPORTO};
+
+  % titolo (5mm sotto il box)
+  \node[anchor=north east, align=right, text=bianco, inner sep=0pt,
+        font=\fontsize{17}{18.7}\selectfont\bfseries]
+    at (99mm,-52mm)
+    {SENTIERO\\ITALIA CAI};
+
+  % box bianco centrale per il numero identificativo (compilato a mano)
+  \node[anchor=north, align=center, text=caiblulight, inner sep=0pt]
+    at (52.5mm,-88mm)
+    {\fontsize{6}{7.5}\selectfont N. identificativo passaporto};
+  \fill[bianco, rounded corners=2mm] (22.5mm,-93mm) rectangle (82.5mm,-107mm);
+
+  % url in basso a sinistra
+  \node[anchor=south west, text=bianco, opacity=0.60, inner sep=0pt]
+    at (6mm,-143mm)
+    {\fontsize{7}{9}\selectfont www.sentieroitalia.cai.it};
+\end{tikzpicture}
+
+%% ── PAGINA 2: PRESENTAZIONE (interno sinistra) ──────────────
+\newpage
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+  \pageheader{Presentazione}
+
+  % campo Nome
+  \node[anchor=south west, inner sep=0pt]
+    at (6mm,-29mm)
+    {\fontsize{7}{9}\selectfont\bfseries\color{caiblu}Nome};
+  \draw[grigiolinea, line width=0.4pt] (6mm,-37mm) -- (57mm,-37mm);
+
+  % campo Cognome
+  \node[anchor=south west, inner sep=0pt]
+    at (6mm,-46mm)
+    {\fontsize{7}{9}\selectfont\bfseries\color{caiblu}Cognome};
+  \draw[grigiolinea, line width=0.4pt] (6mm,-54mm) -- (57mm,-54mm);
+
+  % riquadro foto tessera (35 x 45 mm, in alto a destra sotto l'header)
+  \draw[grigiolinea, line width=0.5pt, dashed] (63mm,-22mm) rectangle (98mm,-67mm);
+  \node[anchor=center, align=center, inner sep=0pt, text=grigiochiarotesto,
+        font=\fontsize{6}{7.5}\selectfont]
+    at (80.5mm,-44.5mm)
+    {Foto tessera\\da applicare};
+
+  % zona firma
+  \node[anchor=south west, inner sep=0pt]
+    at (6mm,-100mm)
+    {\fontsize{7}{9}\selectfont\bfseries\color{caiblu}Firma del camminatore};
+  \draw[grigiolinea, line width=0.4pt] (6mm,-118mm) -- (98mm,-118mm);
+\end{tikzpicture}
+
+%% ── PAGINA 3: COS'È IL SICAI (interno destra) ───────────────
+\newpage
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+  \pageheader{Cos'è il SICAI}
+
+  % sfondo blu sotto l'header
+  \fill[caiblu] (0,-14mm) rectangle (105mm,-148mm);
+
+  % testo descrittivo (2 paragrafi), centrato nella fascia header–badge.
+  % Paragrafi separati con \par (non \\: pgf rielabora ogni riga e
+  % resetta font e penalty — v. README nota 7); niente sillabazione.
+  \node[anchor=center, align=justify, text=bianco, inner sep=0pt,
+        text width=93mm, font=\fontsize{8}{9.5}\selectfont]
+    at (52.5mm,-58.5mm)
+    {Il Sentiero Italia rappresenta uno dei progetti più ambiziosi ed affascinanti nel panorama dell'escursionismo italiano. Attraversa l'intera Penisola, abbracciandone montagne e valli, coste e pianure, città d'arte e piccoli borghi. Questa straordinaria avventura è nata grazie al supporto delle sezioni del Club Alpino Italiano, istituzione storica che da oltre un secolo promuove la cultura montana e la tutela dell'ambiente alpino ed appenninico.\par\vspace{2.5mm}
+     Sentiero Italia è un progetto partecipato, attorno a cui far convergere iniziative di sviluppo economico delle terre alte italiane, promuovendo in maniera nuova e viva tradizioni, specialità artigianali e naturalistiche, e proponendo una nuova cultura, trasversale e condivisa.};
+
+  % colonna Android: badge store + QR
+  \node[anchor=south, inner sep=0pt] (qrandroid) at (26mm,-143mm)
+    {\includegraphics[width=26mm]{((( qr_android_path )))}};
+  \node[anchor=south, inner sep=0pt] at (26mm,-115mm)
+    {\includegraphics[width=28mm]{((( asset_path )))android.png}};
+
+  % colonna iOS: badge store + QR
+  \node[anchor=south, inner sep=0pt] (qrios) at (79mm,-143mm)
+    {\includegraphics[width=26mm]{((( qr_ios_path )))}};
+  \node[anchor=south, inner sep=0pt] at (79mm,-115mm)
+    {\includegraphics[width=28mm]{((( asset_path )))appstore.png}};
+\end{tikzpicture}
+
+%% ── PAGINA 4: MAPPA DEL SICAI (esterno, retro copertina) ────
+\newpage
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+  % sfondo pieno come la copertina (facciata esterna)
+  \fill[caiblu] (0,0) rectangle (105mm,-148mm);
+
+  % titolo
+  \node[anchor=north, align=center, text=bianco, inner sep=0pt]
+    at (52.5mm,-12mm)
+    {\fontsize{12}{15}\selectfont\bfseries Mappa del SICAI};
+
+  % testo + placeholder mappa, centrati verticalmente sotto il titolo
+  \node[anchor=north, align=justify, text=bianco, inner sep=0pt,
+        text width=93mm, font=\fontsize{8}{9.5}\selectfont] (testomappa)
+    at (52.5mm,-37.5mm)
+    {Che tu sia un escursionista esperto o un principiante, il Sentiero Italia ha qualcosa da offrire a tutti.\par\vspace{2.5mm}
+     Scopri le tappe, prepara il tuo zaino e inizia la tua avventura nel cuore del Bel Paese.};
+
+  % placeholder mappa (89 x 70 mm, 4 mm sotto il testo)
+  \coordinate (mapNW) at ([xshift=-44.5mm,yshift=-4mm]testomappa.south);
+  \coordinate (mapSE) at ([xshift=44.5mm,yshift=-74mm]testomappa.south);
+  \draw[caiblulight, line width=0.5pt, dashed] (mapNW) rectangle (mapSE);
+  \node[anchor=center, align=center, text=caiblulight, inner sep=0pt,
+        font=\fontsize{7}{9}\selectfont]
+    at ($(mapNW)!0.5!(mapSE)$)
+    {Mappa dell'intero percorso};
+\end{tikzpicture}
+
+\end{document}
