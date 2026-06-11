@@ -1,7 +1,10 @@
 # Passaporto del Camminatore — Sentiero Italia CAI
 
 Generatore di passaporti stampabili: pagine A6 (105×148 mm) compilate con
-XeLaTeX e imposte 2×2 su A4 fronte/retro.
+XeLaTeX e imposte a valle con pypdf. Le 19 regioni del Sentiero Italia sono
+raggruppate in **8 passaporti**, ciascuno contenuto in **1 solo foglio**:
+7 passaporti su A4 fronte/retro (piega a croce) e il passaporto della Val
+d'Aosta su A5 landscape fronte/retro (piega unica).
 
 ## Uso
 
@@ -9,76 +12,132 @@ XeLaTeX e imposte 2×2 su A4 fronte/retro.
 pip install jinja2 pandas openpyxl pypdf reportlab
 # richiede xelatex (texlive-xetex) installato nel sistema
 
-python genera_passaporto.py Sardegna
-python genera_passaporto.py Molise Basilicata
-python genera_passaporto.py --list        # regioni disponibili
+python genera_passaporto.py --all          # tutti gli 8 passaporti
+python genera_passaporto.py "Nord Est"     # un gruppo specifico
+python genera_passaporto.py --list         # gruppi disponibili
 ```
 
-Per ogni esecuzione vengono prodotti due PDF in `output/`:
+Per ogni gruppo vengono prodotti tre PDF in `output/`:
 
 | File | Contenuto |
 |---|---|
-| `passaporto_<regione>_A6.pdf` | pagine A6 in sequenza logica (per verifica a video) |
-| `passaporto_<regione>_A4_stampa.pdf` | imposizione 2×2 fronte/retro **senza margini** (al vivo, per tipografia) |
-| `passaporto_<regione>_A4_stampa_margini.pdf` | stessa imposizione **con margini di stampa** (5 mm, contenuto scalato e centrato — per stampanti che non stampano borderless; costante `MARGINE_STAMPA_MM`) |
+| `passaporto_<gruppo>_A6.pdf` | pagine A6 in sequenza logica (per verifica a video) |
+| `passaporto_<gruppo>_A4_stampa.pdf` (o `_A5_stampa.pdf` per Valle d'Aosta) | imposizione fronte/retro **senza margini** (al vivo, per tipografia) |
+| `passaporto_<gruppo>_A4_stampa_margini.pdf` (o `_A5_...`) | stessa imposizione **con margini di stampa** (5 mm, contenuto scalato e centrato — per stampanti non borderless; costante `MARGINE_STAMPA_MM`) |
 
-Le caselle tappa mostrano solo il **numero progressivo**, il **ref** della
-tappa e la **zona timbro** (ampliata a 29×52 mm).
+## Raggruppamenti (costante `GRUPPI`)
+
+| # | Gruppo | Regioni | Formato foglio | Tappe | Pag. timbri | Note |
+|---|---|---|---|---:|---:|---:|
+| 1 | Nord Est | Friuli Venezia Giulia, Veneto, Trentino | A4 210×297 mm | 69 | 6 | 1 |
+| 2 | Lombardia | Lombardia | A4 210×297 mm | 60 | 5 | 2 |
+| 3 | Piemonte | Piemonte | A4 210×297 mm | 83 | 7 | 0 |
+| 4 | Valle d'Aosta | Valle d'Aosta | **A5 210×148 mm** | 20 | 2 | 1 |
+| 5 | Centro Nord | Liguria, Toscana/Emilia Romagna, Umbria | A4 210×297 mm | 77 | 7 | 0 |
+| 6 | Centro Sud | Marche, Lazio, Abruzzo, Molise, Basilicata | A4 210×297 mm | 70 | 6 | 1 |
+| 7 | Sud | Puglia, Campania, Calabria | A4 210×297 mm | 79 | 7 | 0 |
+| 8 | Isole | Sicilia, Sardegna | A4 210×297 mm | 67 | 6 | 1 |
+
+Totale: **525 tappe, 8 fogli** (7 A4 + 1 A5).
+
+## Dimensioni
+
+| Elemento | Dimensioni |
+|---|---|
+| Foglio di stampa A4 (gruppi 1–3, 5–8) | 210 × 297 mm |
+| Foglio di stampa A5 landscape (Valle d'Aosta) | 210 × 148 mm |
+| Pagina / passaporto chiuso (tutti) | 105 × 148 mm (A6) |
+| Casella timbro (griglia 3×4, 12 per pagina) | cella 35 × 33,5 mm, zona timbro quadrata 26 × 26 mm |
+
+Ogni casella mostra il **ref** della tappa in alto a sinistra e il **nome
+regione** in alto a destra (font più piccolo, stessa riga); dentro il
+riquadro tratteggiato (testo centrato, a capo automatico) compaiono
+**inizio**, **arrivo**, **km**, **dislivello positivo** e **dislivello negativo**;
+i campi senza dato non vengono mostrati.
+
+Ogni pagina timbri ospita **12 timbri quadrati** (griglia 3 colonne × 4
+righe sotto l'header da 14 mm). Capacità di un foglio A4: copertina +
+7 pagine timbri = **84 tappe max**. La pagina mappa (vecchio retro
+copertina) è stata rimossa per liberare uno slot timbri nel foglio.
 
 ## Struttura
 
 ```
 progetto/
-├── genera_passaporto.py             # pipeline completa
+├── genera_passaporto.py             # pipeline completa + GRUPPI
 ├── tappe.xlsx    # fonte dati (sviluppo; in prod: PostgreSQL)
 ├── templates/passaporto.tex.j2      # template LaTeX (delimitatori ((( ))) / ((* *)))
 ├── assets/logo_cai.png              # ritagliato e con sfondo trasparente
-├── assets/logo_sicai.png              # logo Sentiero Italia / SICAI
+├── assets/logo_sicai.png            # logo Sentiero Italia / SICAI
 └── fonts/Montserrat-*.ttf
 ```
 
-## Miglioramenti rispetto al prompt originale
+## Imposizione
+
+L'imposizione è separata dal design (il LaTeX genera solo il documento A6
+sequenziale, pypdf monta i fogli a valle).
+
+### Gruppi A4 — ripiegabile a croce (2×2)
+
+Il foglio A4 piegato in 4 diventa il passaporto A6 (come il modello SICAI
+di riferimento). Un foglio A4 fronte/retro ospita 8 pagine logiche.
+
+```
+FRONTE (esterno)            RETRO (interno, tutto dritto)
+┌────────┬────────┐         ┌────────┬────────┐
+│  4 ↓   │  3 ↓   │         │   5    │   6    │
+│ capov. │ capov. │         │        │        │
+├────────┼────────┤         ├────────┼────────┤
+│   2    │   1    │         │   7    │   8    │
+│        │ coper- │         │        │ (Note) │
+│        │ tina   │         │        │        │
+└────────┴────────┘         └────────┴────────┘
+```
+
+Le tappe **iniziano nel primo slot dopo la copertina**; le eventuali
+pagine **Note cadono alla fine**, negli ultimi slot del foglio. Chiuso:
+copertina davanti. Aperto: l'interno A4 si legge come 4 sezioni A6
+dritte; le due sezioni esterne superiori sono capovolte perché risultino
+dritte dopo la piega orizzontale. Segni di piega tratteggiati ai bordi.
+
+### Valle d'Aosta — A5 landscape, piega unica (2×1)
+
+Il foglio A5 landscape (210×148 mm), piegato lungo la piega verticale
+centrale, diventa un libretto A6 a 4 facciate. Un foglio A5 fronte/retro
+ospita 4 pagine logiche (copertina + 2 pagine timbri + 1 pagina Note).
+
+```
+FRONTE (esterno)            RETRO (interno)
+┌────────┬────────┐         ┌────────┬────────┐
+│   4    │   1    │         │   2    │   3    │
+│ (retro │ (coper-│         │        │        │
+│  cop.) │  tina) │         │        │        │
+└────────┴────────┘         └────────┴────────┘
+```
+
+Stampa duplex con **ribaltamento sul lato corto** (le colonne del retro
+sono speculari rispetto al fronte). Chiuso il passaporto misura
+105×148 mm, identico agli altri.
+
+## Note implementative
 
 1. **Imposizione separata dal design (pgfpages rimosso).** Il LaTeX
    genera solo il documento A6 sequenziale; l'imposizione è fatta a
-   valle con pypdf secondo lo schema **ripiegabile a croce** (come il
-   modello SICAI di riferimento): il foglio A4 piegato in 4 diventa il
-   passaporto A6.
-
-   ```
-   FRONTE (esterno)            RETRO (interno, tutto dritto)
-   ┌────────┬────────┐         ┌────────┬────────┐
-   │  4 ↓   │  3 ↓   │         │   5    │   6    │
-   │ capov. │ capov. │         │        │        │
-   ├────────┼────────┤         ├────────┼────────┤
-   │   2    │   1    │         │   7    │   8    │
-   │ retro  │ coper- │         │        │ (Note) │
-   │ cop.   │ tina   │         │        │        │
-   └────────┴────────┘         └────────┴────────┘
-   ```
-
-   Le tappe **iniziano nel primo A4** (fronte alto = prime due pagine
-   timbri); le eventuali pagine **Note cadono alla fine**, negli ultimi
-   slot dell'ultimo foglio.
-
-   Chiuso: copertina davanti, retro copertina dietro. Aperto: l'interno
-   A4 si legge come 4 sezioni A6 dritte; le due sezioni esterne
-   superiori sono capovolte perché risultino dritte dopo la piega
-   orizzontale. Segni di piega tratteggiati ai bordi. Un foglio A4
-   fronte/retro ospita 8 pagine logiche.
+   valle con pypdf (`imponi_su_a4` per la croce 2×2, `imponi_su_a5`
+   per il libretto Valle d'Aosta).
 
 2. **Escaping LaTeX dei dati.** I toponimi possono contenere `&`, `%`,
    `#`, `_` ecc.: un filtro `finalize` di Jinja2 li rende sicuri
    automaticamente su tutte le variabili stringa.
 
-3. **Gestione valori mancanti.** Il dataset contiene 26 `from`, 28 `to`
-   e 66 `cai_scale` nulli: lo script stampa `—` / `n.d.` invece di `nan`.
+3. **Gestione valori mancanti.** Il dataset contiene `from`, `to` e
+   `cai_scale` nulli: lo script stampa `—` / `n.d.` invece di `nan`.
 
 4. **Ordinamento naturale dei ref** (`SI Z2` < `SI Z10`), robusto a
    formati di numerazione diversi tra regioni.
 
-5. **Segni di piega** sul PDF A4 (overlay reportlab) lungo le due
-   linee di piega.
+5. **Segni di piega** sul PDF di stampa (overlay reportlab): croce 2×2
+   per i fogli A4, piega verticale singola per l'A5 della Valle d'Aosta.
 
 6. **Doppia passata XeLaTeX** (necessaria per i nodi TikZ
    `remember picture`) e `--halt-on-error` con log diagnostico.
@@ -96,7 +155,7 @@ progetto/
 In `carica_tappe()` sostituire la lettura Excel con:
 
 ```sql
-SELECT ref, "from", "to", distance, ascent, cai_scale
+SELECT ref, "from", "to", distance, ascent, descent, cai_scale
 FROM ec_tracks
 WHERE region = ANY(%(regioni)s)
 ```

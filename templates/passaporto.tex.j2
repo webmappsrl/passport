@@ -35,11 +35,11 @@
 ]
 
 % ---- Header pagine interne (timbri / note) ----
-% #1 = etichetta destra (es. "Tappe 1–6" oppure "Note")
+% #1 = etichetta destra (es. "Tappe 1–12" oppure "Note")
 \newcommand{\pageheader}[1]{%
   \fill[caiblu] (0,0) rectangle (105mm,-14mm);
   \node[anchor=west, text=bianco, inner sep=0pt]
-    at (5mm,-7mm) {\fontsize{9}{11}\selectfont\bfseries ((( regione_nome )))};
+    at (5mm,-7mm) {\fontsize{9}{11}\selectfont\bfseries ((( gruppo_nome )))};
   \node[anchor=center, text=bianco, opacity=0.55, inner sep=0pt]
     at (52.5mm,-7mm) {\fontsize{7}{9}\selectfont Sentiero Italia CAI};
   \node[anchor=east, text=bianco, opacity=0.70, inner sep=0pt]
@@ -71,33 +71,23 @@
     at (99mm,-52mm)
     {SENTIERO\\ITALIA CAI};
 
-  % nome regione/i (5mm sotto il titolo)
-  \node[anchor=north east, align=right, text=bianco, opacity=0.80, inner sep=0pt]
+  % nome del gruppo (5mm sotto il titolo)
+  \node[anchor=north east, align=right, text=bianco, inner sep=0pt]
     at (99mm,-70.5mm)
-    {\fontsize{10}{13}\selectfont ((( regione_nome )))};
+    {\fontsize{12}{15}\selectfont\bfseries ((( gruppo_nome )))};
+
+  % elenco regioni del gruppo (omesso se ridondante con il nome del passaporto)
+  ((* if regioni_nome *))
+  \node[anchor=north east, align=right, text=bianco, opacity=0.75,
+        inner sep=0pt, text width=90mm]
+    at (99mm,-77.5mm)
+    {\fontsize{8}{11}\selectfont ((( regioni_nome )))};
+  ((* endif *))
 
   % url in basso a sinistra
   \node[anchor=south west, text=bianco, opacity=0.60, inner sep=0pt]
     at (6mm,-143mm)
     {\fontsize{7}{9}\selectfont www.sentieroitalia.cai.it};
-\end{tikzpicture}
-
-%% ── PAGINA 2: RETRO COPERTINA ───────────────────────────────
-\newpage
-\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
-  \fill[caiblu] (0,0) rectangle (105mm,-148mm);
-  % mappa SICAI in filigrana, interamente contenuta nella pagina A6
-  \node[anchor=center, inner sep=0pt, opacity=0.10] at (52.5mm,-74mm)
-    {\includegraphics[width=95mm]{((( asset_path )))mappa_sicai_nobg.png}};
-  % testo sovrapposto
-  \node[anchor=north west, inner sep=0pt, text width=70mm,
-        align=justify, text=bianco,
-        font=\fontsize{9.5}{14}\selectfont]
-    at (18mm,-28mm)
-    {Che tu sia un escursionista esperto o un principiante, il Sentiero
-     Italia ha qualcosa da offrire a tutti.\\[4mm]
-     \raggedright Scopri le tappe, prepara il tuo zaino e inizia la tua
-     avventura\\nel cuore del Bel Paese.\par};
 \end{tikzpicture}
 
 %% ── PAGINE TIMBRI ───────────────────────────────────────────
@@ -106,21 +96,43 @@
 \begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
   \pageheader{Tappe ((( pagina.ref_da )))--((( pagina.ref_a )))}
 
-  % griglia 3x2 (celle 35 x 67 mm) sotto l'header
+  % griglia 3x4 (12 celle da 35 x 33.5 mm) sotto l'header da 14 mm
   ((* for cella in pagina.celle *))
   ((* set cx = (loop.index0 % 3) * 35 *))
-  ((* set cy = 14 + (loop.index0 // 3) * 67 *))
+  ((* set cy = 14 + (loop.index0 // 3) * 33.5 *))
   ((* if cella.tappa *))
   % bordo cella
   \draw[grigiolinea, line width=0.4pt]
-    ({((( cx )))mm}, {-((( cy )))mm}) rectangle ++(35mm,-67mm);
-  % zona timbro tratteggiata (ampliata: la zona info contiene solo numero e ref)
+    ({((( cx )))mm}, {-((( cy )))mm}) rectangle ++(35mm,-33.5mm);
+  % ref tappa — alto sinistra
+  \node[anchor=north west, inner sep=0pt]
+    at ({((( cx )))mm + 2mm}, {-((( cy )))mm - 1.5mm})
+    {\fontsize{7}{8}\selectfont\bfseries\color{caiblu}{((( cella.tappa.ref )))}};
+  % regione — alto destra, font più piccolo
+  \node[anchor=north east, inner sep=0pt, text width=20mm, align=right, opacity=0.85]
+    at ({((( cx )))mm + 33mm}, {-((( cy )))mm - 1.5mm})
+    {\fontsize{4}{4.8}\selectfont\color{caiblu}{((( cella.tappa.regione )))}};
+  % zona timbro tratteggiata quadrata, centrata sotto il ref
   \draw[grigiolinea, line width=0.5pt, dashed]
-    ({((( cx )))mm + 3mm}, {-((( cy )))mm - 12mm}) rectangle ++(29mm,-52mm);
-  % zona info tappa: solo il ref/nome della tappa, nel colore dell'header
-  \node[anchor=north west, inner sep=0pt, text width=29mm]
-    at ({((( cx )))mm + 3mm}, {-((( cy )))mm - 3.5mm})
-    {\fontsize{9}{11}\selectfont\bfseries\color{caiblu}\truncate{29mm}{((( cella.tappa.ref )))}};
+    ({((( cx )))mm + 4.5mm}, {-((( cy )))mm - 6mm}) rectangle ++(26mm,-26mm);
+  % info tappa dentro il riquadro timbro (centrata in altezza, testo a capo)
+  \node[anchor=center, inner sep=0pt, text width=24mm, align=left]
+    at ({((( cx )))mm + 17.5mm}, {-((( cy )))mm - 19mm})
+    {\fontsize{4}{4.8}\selectfont\color{testoprimario}\raggedright
+     ((* if cella.tappa.da *))
+     {\bfseries\color{caiblu}Inizio:} ((( cella.tappa.da )))\\[0.3mm]
+     ((* endif *))
+     ((* if cella.tappa.a *))
+     {\bfseries\color{caiblu}Arrivo:} ((( cella.tappa.a )))\\[0.3mm]
+     ((* endif *))
+     {\bfseries\color{caiblu}Km:} ((( cella.tappa.km )))\\[0.3mm]
+     ((* if cella.tappa.dislivello *))
+     {\bfseries\color{caiblu}Dislivello positivo:} ((( cella.tappa.dislivello ))) m\\[0.3mm]
+     ((* endif *))
+     ((* if cella.tappa.discesa *))
+     {\bfseries\color{caiblu}Dislivello negativo:} ((( cella.tappa.discesa ))) m
+     ((* endif *))
+    };
   ((* endif *))
   ((* endfor *))
 \end{tikzpicture}

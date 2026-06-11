@@ -11,9 +11,9 @@ Pipeline (design e imposizione separati, come da architettura del progetto):
               duplex corretto (cut & stack) + crocini di taglio
 
 Uso:
-  python genera_passaporto.py Sardegna
-  python genera_passaporto.py Molise Basilicata
-  python genera_passaporto.py --list          # elenco regioni disponibili
+  python genera_passaporto.py --all           # tutti gli 8 passaporti
+  python genera_passaporto.py "Nord Est"      # un gruppo specifico
+  python genera_passaporto.py --list          # elenco gruppi disponibili
 """
 
 from __future__ import annotations
@@ -45,10 +45,52 @@ OUTPUT_DIR = BASE_DIR / "output"
 MM = 72 / 25.4
 A6_W, A6_H = 105 * MM, 148 * MM
 A4_W, A4_H = A4  # 210 x 297 mm portrait
+A5L_W, A5L_H = 210 * MM, 148 * MM  # A5 landscape (formato Val d'Aosta)
 
-TAPPE_PER_PAGINA = 6
-PAGINE_PER_FOGLIO_A4 = 8  # 4 slot fronte + 4 slot retro
+TAPPE_PER_PAGINA = 12      # griglia 3x4 di timbri quadrati per pagina A6
+PAGINE_PER_FOGLIO_A4 = 8   # 4 slot fronte + 4 slot retro
+PAGINE_PER_FOGLIO_A5 = 4   # 2 pannelli fronte + 2 pannelli retro
 MARGINE_STAMPA_MM = 5      # margine per la versione "con margini di stampa"
+
+# ----------------------------------------------------------------------
+# Raggruppamenti fissi: 8 passaporti, 1 foglio ciascuno.
+# Capacità per foglio: A4 = copertina + 7 pagine timbri (84 tappe max);
+# A5 (solo Val d'Aosta) = copertina + 3 facciate (36 tappe max).
+# ----------------------------------------------------------------------
+GRUPPI: dict[str, dict] = {
+    "Nord Est": {
+        "regioni": ["Friuli Venezia Giulia", "Veneto", "Trentino"],
+        "formato": "A4",
+    },
+    "Lombardia": {
+        "regioni": ["Lombardia"],
+        "formato": "A4",
+    },
+    "Piemonte": {
+        "regioni": ["Piemonte"],
+        "formato": "A4",
+    },
+    "Valle d'Aosta": {
+        "regioni": ["Valle d'Aosta"],
+        "formato": "A5",
+    },
+    "Centro Nord": {
+        "regioni": ["Liguria", "Toscana/Emilia Romagna", "Umbria"],
+        "formato": "A4",
+    },
+    "Centro Sud": {
+        "regioni": ["Marche", "Lazio", "Abruzzo", "Molise", "Basilicata"],
+        "formato": "A4",
+    },
+    "Sud": {
+        "regioni": ["Puglia", "Campania", "Calabria"],
+        "formato": "A4",
+    },
+    "Isole": {
+        "regioni": ["Sicilia", "Sardegna"],
+        "formato": "A4",
+    },
+}
 
 
 # ----------------------------------------------------------------------
@@ -93,7 +135,7 @@ def risolvi_ref(row) -> str | None:
 def carica_tappe(regioni: list[str], excel_path: Path = EXCEL_PATH) -> list[dict]:
     """Carica le tappe dal file Excel (in produzione: stessa struttura via
     query PostgreSQL su ec_tracks: ref, "from", "to", distance, ascent,
-    cai_scale WHERE region = ANY(%(regioni)s))."""
+    descent, cai_scale WHERE region = ANY(%(regioni)s))."""
     df = pd.read_excel(excel_path)
 
     disponibili = set(df["region"].dropna().unique())
@@ -124,12 +166,13 @@ def carica_tappe(regioni: list[str], excel_path: Path = EXCEL_PATH) -> list[dict
     for _, row in df.iterrows():
         tappe.append({
             "ref": row["ref_completo"],
-            # il dataset contiene valori mancanti in from/to/cai_scale:
-            # vanno gestiti, mai stampare 'nan' sul passaporto
-            "da": str(row["from"]).strip() if pd.notna(row["from"]) else "—",
-            "a": str(row["to"]).strip() if pd.notna(row["to"]) else "—",
+            "regione": str(row["region"]).strip(),
+            # campi opzionali: None = non mostrare la riga sul passaporto
+            "da": str(row["from"]).strip() if pd.notna(row["from"]) else None,
+            "a": str(row["to"]).strip() if pd.notna(row["to"]) else None,
             "km": f"{float(row['distance']):.1f}",
-            "dislivello": str(int(row["ascent"])) if pd.notna(row["ascent"]) else "—",
+            "dislivello": str(int(row["ascent"])) if pd.notna(row["ascent"]) else None,
+            "discesa": str(int(row["descent"])) if pd.notna(row["descent"]) else None,
             "difficolta": str(row["cai_scale"]).strip() if pd.notna(row["cai_scale"]) else "n.d.",
         })
     return tappe
@@ -153,7 +196,7 @@ def latex_escape(value) -> str:
     return "".join(_LATEX_SPECIALS.get(ch, ch) for ch in s)
 
 
-def costruisci_contesto(regioni: list[str], tappe: list[dict]) -> dict:
+def costruisci_contesto(gruppo_nome: str, regioni: list[str], tappe: list[dict]) -> dict:
     pagine_timbri = []
     for i in range(0, len(tappe), TAPPE_PER_PAGINA):
         gruppo = tappe[i:i + TAPPE_PER_PAGINA]
@@ -161,7 +204,7 @@ def costruisci_contesto(regioni: list[str], tappe: list[dict]) -> dict:
             {"numero": i + j + 1, "tappa": t}
             for j, t in enumerate(gruppo)
         ]
-        # caselle vuote nell'ultima pagina (numerazione casella 1..6)
+        # caselle vuote nell'ultima pagina (numerazione casella 1..12)
         while len(celle) < TAPPE_PER_PAGINA:
             celle.append({"numero": len(celle) + 1, "tappa": None})
         def _ref_breve(ref: str) -> str:
@@ -176,12 +219,19 @@ def costruisci_contesto(regioni: list[str], tappe: list[dict]) -> dict:
             "celle": celle,
         })
 
-    pagine_logiche = 2 + len(pagine_timbri)
+    # 1 sola pagina fissa (copertina): la pagina mappa è stata rimossa
+    pagine_logiche = 1 + len(pagine_timbri)
     pagine_totali = math.ceil(pagine_logiche / 4) * 4
     pagine_note = pagine_totali - pagine_logiche
 
+    # se il passaporto ha una sola regione con lo stesso nome, non ripetere in copertina
+    regioni_nome = ""
+    if not (len(regioni) == 1 and gruppo_nome == regioni[0]):
+        regioni_nome = " · ".join(regioni)
+
     return {
-        "regione_nome": " · ".join(regioni),
+        "gruppo_nome": gruppo_nome,
+        "regioni_nome": regioni_nome,
         "pagine_timbri": pagine_timbri,
         "totale_tappe": len(tappe),
         "pagine_note": pagine_note,
@@ -355,69 +405,180 @@ def imponi_su_a4(a6_pdf: Path, output_pdf: Path, crocini: bool = True,
 
 
 # ----------------------------------------------------------------------
+# 4-bis. Imposizione 2x1 su A5 landscape — formato dedicato Val d'Aosta
+# ----------------------------------------------------------------------
+#
+# Il foglio A5 landscape (210 x 148 mm), piegato in due lungo la piega
+# verticale centrale, diventa un libretto A6. Layout a 4 facciate:
+#
+#   FRONTE (esterno)              RETRO (interno)
+#   ┌─────────┬─────────┐         ┌─────────┬─────────┐
+#   │    4    │    1    │         │    2    │    3    │
+#   │ (retro  │ (coper- │         │         │         │
+#   │  cop.)  │  tina)  │         │         │         │
+#   └─────────┴─────────┘         └─────────┴─────────┘
+#
+# Chiuso: copertina davanti (fronte destra), retro copertina dietro
+# (fronte sinistra). Aperto: l'interno si legge come doppia pagina 2-3.
+# Stampa duplex con ribaltamento sul lato corto (le colonne del retro
+# sono speculari rispetto al fronte).
+
+# ordine delle pagine logiche del foglio A5: (lato, colonna)
+# lato 0 = fronte, lato 1 = retro; colonna 0 = sinistra, 1 = destra
+_FOLD_LAYOUT_A5 = [
+    (0, 1),  # 1: copertina (fronte destra)
+    (1, 0),  # 2: interno sinistra
+    (1, 1),  # 3: interno destra
+    (0, 0),  # 4: retro copertina (fronte sinistra)
+]
+
+
+def _crocini_overlay_a5() -> "PdfReader":
+    """Pagina A5 landscape con segni di piega ai bordi (piega verticale)."""
+    import io
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=(A5L_W, A5L_H))
+    c.setLineWidth(0.3)
+    c.setStrokeColorRGB(0.45, 0.45, 0.45)
+    c.setDash(2, 2)
+    tick = 4 * MM
+    x_fold = A6_W  # piega verticale centrale
+    c.line(x_fold, A5L_H, x_fold, A5L_H - tick)
+    c.line(x_fold, 0, x_fold, tick)
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return PdfReader(buf)
+
+
+def imponi_su_a5(a6_pdf: Path, output_pdf: Path, crocini: bool = True,
+                 margine_mm: float = 0.0) -> int:
+    """Imposizione 2x1 fronte/retro su A5 landscape (libretto a piega unica).
+
+    margine_mm = 0  → senza margini (al vivo, per stampa tipografica)
+    margine_mm > 0  → montaggio scalato e centrato dentro l'area utile
+    """
+    reader = PdfReader(str(a6_pdf))
+    n = len(reader.pages)
+    n_fogli = math.ceil(n / PAGINE_PER_FOGLIO_A5)
+    writer = PdfWriter()
+    marks = _crocini_overlay_a5().pages[0] if crocini else None
+
+    m = margine_mm * MM
+    scala = min((A5L_W - 2 * m) / A5L_W, (A5L_H - 2 * m) / A5L_H)
+    off_x = (A5L_W - A5L_W * scala) / 2
+    off_y = (A5L_H - A5L_H * scala) / 2
+    riduzione = Transformation().scale(scala).translate(tx=off_x, ty=off_y)
+
+    for foglio in range(n_fogli):
+        base = foglio * PAGINE_PER_FOGLIO_A5
+        fronte = writer.add_blank_page(width=A5L_W, height=A5L_H)
+        retro = writer.add_blank_page(width=A5L_W, height=A5L_H)
+        lati = (fronte, retro)
+
+        for offset, (lato, col) in enumerate(_FOLD_LAYOUT_A5):
+            page_idx = base + offset
+            if page_idx >= n:
+                continue
+            t = Transformation().translate(tx=col * A6_W, ty=0)
+            if margine_mm > 0:
+                t = Transformation(t.ctm).scale(scala).translate(tx=off_x, ty=off_y)
+            lati[lato].merge_transformed_page(reader.pages[page_idx], t)
+
+        for dest in lati:
+            if marks is not None:
+                if margine_mm > 0:
+                    dest.merge_transformed_page(marks, riduzione)
+                else:
+                    dest.merge_page(marks)
+            dest.mediabox = RectangleObject([0, 0, A5L_W, A5L_H])
+
+    with open(output_pdf, "wb") as f:
+        writer.write(f)
+    return n_fogli
+
+
+# ----------------------------------------------------------------------
 # Entry point
 # ----------------------------------------------------------------------
 
-def genera_passaporto(regioni: list[str], output_dir: Path = OUTPUT_DIR) -> dict:
+def genera_passaporto(gruppo_nome: str, output_dir: Path = OUTPUT_DIR) -> dict:
+    if gruppo_nome not in GRUPPI:
+        raise SystemExit(
+            f"Gruppo non trovato: {gruppo_nome!r}.\n"
+            f"Disponibili: {', '.join(GRUPPI)}"
+        )
+    cfg = GRUPPI[gruppo_nome]
+    regioni = cfg["regioni"]
+    formato = cfg["formato"]
+
     tappe = carica_tappe(regioni)
     if not tappe:
         raise SystemExit("Nessuna tappa trovata per le regioni richieste.")
 
-    context = costruisci_contesto(regioni, tappe)
+    context = costruisci_contesto(gruppo_nome, regioni, tappe)
     tex_source = renderizza_tex(context)
 
-    slug = "_".join(
-        re.sub(r"[^a-z0-9]+", "_", r.lower()).strip("_") for r in regioni
-    )
+    slug = re.sub(r"[^a-z0-9]+", "_", gruppo_nome.lower()).strip("_")
     output_dir.mkdir(parents=True, exist_ok=True)
     out_a6 = output_dir / f"passaporto_{slug}_A6.pdf"
-    out_a4 = output_dir / f"passaporto_{slug}_A4_stampa.pdf"
-    out_a4_margini = output_dir / f"passaporto_{slug}_A4_stampa_margini.pdf"
+    out_stampa = output_dir / f"passaporto_{slug}_{formato}_stampa.pdf"
+    out_stampa_margini = output_dir / f"passaporto_{slug}_{formato}_stampa_margini.pdf"
 
     with tempfile.TemporaryDirectory() as tmp:
         pdf_a6 = compila_xelatex(tex_source, Path(tmp))
         shutil.copy(pdf_a6, out_a6)
 
-    n_fogli = imponi_su_a4(out_a6, out_a4)                       # senza margini (al vivo)
-    imponi_su_a4(out_a6, out_a4_margini, margine_mm=MARGINE_STAMPA_MM)
+    imponi = imponi_su_a5 if formato == "A5" else imponi_su_a4
+    n_fogli = imponi(out_a6, out_stampa)                          # senza margini (al vivo)
+    imponi(out_a6, out_stampa_margini, margine_mm=MARGINE_STAMPA_MM)
 
     info = {
+        "gruppo": gruppo_nome,
         "regioni": regioni,
+        "formato": formato,
         "tappe": len(tappe),
         "pagine_timbri": len(context["pagine_timbri"]),
         "pagine_note": context["pagine_note"],
-        "pagine_logiche_totali": 2 + len(context["pagine_timbri"]) + context["pagine_note"],
-        "fogli_a4": n_fogli,
+        "pagine_logiche_totali": 1 + len(context["pagine_timbri"]) + context["pagine_note"],
+        "fogli": n_fogli,
         "pdf_a6": out_a6,
-        "pdf_a4": out_a4,
-        "pdf_a4_margini": out_a4_margini,
+        "pdf_stampa": out_stampa,
+        "pdf_stampa_margini": out_stampa_margini,
     }
     print(
-        f"✔ {context['regione_nome']}: {info['tappe']} tappe, "
+        f"✔ {gruppo_nome} ({' · '.join(regioni)}): {info['tappe']} tappe, "
         f"{info['pagine_timbri']} pagine timbri, {info['pagine_note']} pagine note, "
-        f"{info['fogli_a4']} fogli A4 fronte/retro\n"
-        f"  → {out_a6.name}\n  → {out_a4.name} (senza margini)\n"
-        f"  → {out_a4_margini.name} (margini {MARGINE_STAMPA_MM} mm)"
+        f"{info['fogli']} fogli {formato} fronte/retro\n"
+        f"  → {out_a6.name}\n  → {out_stampa.name} (senza margini)\n"
+        f"  → {out_stampa_margini.name} (margini {MARGINE_STAMPA_MM} mm)"
     )
     return info
 
 
 def main():
     parser = argparse.ArgumentParser(description="Genera il Passaporto del Camminatore")
-    parser.add_argument("regioni", nargs="*", help="Una o più regioni (es. Sardegna, oppure Molise Basilicata)")
-    parser.add_argument("--list", action="store_true", help="Elenca le regioni disponibili")
+    parser.add_argument("gruppi", nargs="*",
+                        help="Uno o più gruppi (es. \"Nord Est\", Piemonte)")
+    parser.add_argument("--all", action="store_true",
+                        help="Genera tutti gli 8 passaporti")
+    parser.add_argument("--list", action="store_true",
+                        help="Elenca i gruppi disponibili")
     args = parser.parse_args()
 
-    if args.list or not args.regioni:
+    if args.list or (not args.gruppi and not args.all):
         df = pd.read_excel(EXCEL_PATH)
         counts = df["region"].value_counts()
-        print("Regioni disponibili (tappe):")
-        for reg, n in counts.items():
-            print(f"  {reg}: {n}")
-        if not args.regioni:
+        print("Gruppi disponibili (tappe):")
+        for nome, cfg in GRUPPI.items():
+            n = sum(int(counts.get(r, 0)) for r in cfg["regioni"])
+            print(f"  {nome} [{cfg['formato']}]: {n} — {', '.join(cfg['regioni'])}")
+        if not args.gruppi and not args.all:
             sys.exit(0)
 
-    genera_passaporto(args.regioni)
+    da_generare = list(GRUPPI) if args.all else args.gruppi
+    for gruppo in da_generare:
+        genera_passaporto(gruppo)
 
 
 if __name__ == "__main__":
