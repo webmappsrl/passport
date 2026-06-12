@@ -9,7 +9,7 @@ d'Aosta su A5 landscape fronte/retro (piega unica).
 ## Uso
 
 ```bash
-pip install jinja2 pandas openpyxl pypdf reportlab
+pip install -r requirements.txt
 # richiede xelatex (texlive-xetex) installato nel sistema
 
 python genera_passaporto.py --all          # tutti gli 8 passaporti
@@ -17,7 +17,10 @@ python genera_passaporto.py "Nord Est"     # un gruppo specifico
 python genera_passaporto.py --list         # gruppi disponibili
 ```
 
-Per ogni gruppo vengono prodotti tre PDF in `output/`:
+Per ogni gruppo vengono prodotti tre PDF in `output/<slug>/` (es.
+`output/nord_est/`, `output/valle_d_aosta/`):
+
+Le mappe di copertina sono in `output/mappe/` (cartella separata).
 
 | File | Contenuto |
 |---|---|
@@ -50,7 +53,7 @@ Le 4 facciate logiche (ordine sequenziale A6, imposte con
 | 1 | Copertina | esterno, fronte destra | stile copertina passaporto; box bianco centrale per il **numero identificativo** compilato a mano |
 | 2 | Presentazione | interno sinistra | campi **Nome** e **Cognome**, riquadro 35×45 mm per la **foto tessera**, linea per la **firma** |
 | 3 | Cos'è il SICAI | interno destra | testo descrittivo del progetto + badge store e **QR code** app Android/iOS |
-| 4 | Mappa del SICAI | esterno, retro copertina | testo introduttivo + placeholder **mappa dell'intero percorso** |
+| 4 | Mappa del SICAI | esterno, retro copertina | testo introduttivo + **mappa dell'intero percorso** generata a build-time |
 
 Template:
 `templates/raccoglitore.tex.j2`. I QR code sono convertiti da SVG a PNG
@@ -65,8 +68,8 @@ a build-time (`cairosvg`) perché XeLaTeX non include direttamente gli SVG.
 | 3 | Piemonte | Piemonte | A4 210×297 mm | 83 | 7 | 0 |
 | 4 | Valle d'Aosta | Valle d'Aosta | **A5 210×148 mm** | 20 | 2 | 1 |
 | 5 | Centro Nord | Liguria, Toscana/Emilia Romagna, Umbria | A4 210×297 mm | 77 | 7 | 0 |
-| 6 | Centro Sud | Marche, Lazio, Abruzzo, Molise, Basilicata | A4 210×297 mm | 70 | 6 | 1 |
-| 7 | Sud | Puglia, Campania, Calabria | A4 210×297 mm | 79 | 7 | 0 |
+| 6 | Centro Sud | Marche, Lazio, Abruzzo, Molise, Puglia | A4 210×297 mm | 76 | 7 | 0 |
+| 7 | Sud | Basilicata, Campania, Calabria | A4 210×297 mm | 73 | 7 | 0 |
 | 8 | Isole | Sicilia, Sardegna | A4 210×297 mm | 67 | 6 | 1 |
 
 Totale: **525 tappe, 8 fogli** (7 A4 + 1 A5).
@@ -83,13 +86,13 @@ Totale: **525 tappe, 8 fogli** (7 A4 + 1 A5).
 Ogni casella mostra il **ref** della tappa in alto a sinistra e il **nome
 regione** in alto a destra (font più piccolo, stessa riga); dentro il
 riquadro tratteggiato (testo centrato, a capo automatico) compaiono
-**inizio**, **arrivo**, **km**, **dislivello positivo** e **dislivello negativo**;
-i campi senza dato non vengono mostrati.
+**inizio**, **arrivo**, **km**, **D+** e **D-** (dislivello positivo e
+negativo); i campi senza dato non vengono mostrati.
 
 La **copertina** riporta, sotto il nome del passaporto, le statistiche
 aggregate per ogni regione del gruppo: numero di tappe, chilometri
-totali, dislivello positivo e negativo totali (es.
-`20 tappe · 236,7 km · +17.656 m / −18.632 m`). Nei passaporti
+totali (interi, arrotondati), dislivello positivo e negativo totali (es.
+`20 tappe · 237 km · D+ 17.656 m / D- 18.632 m`). Nei passaporti
 monoregione con nome coincidente col gruppo il nome regione non viene
 ripetuto sopra la riga statistiche.
 
@@ -104,12 +107,43 @@ copertina) è stata rimossa per liberare uno slot timbri nel foglio.
 progetto/
 ├── genera_passaporto.py             # pipeline completa + GRUPPI
 ├── genera_raccoglitore.py           # raccoglitore A5→A6 (riusa la pipeline)
+├── genera_mappe.py                  # mappe basemap Webmapp + overlay SICAI
 ├── tappe.xlsx    # fonte dati (sviluppo; in prod: PostgreSQL)
 ├── templates/passaporto.tex.j2      # template LaTeX (delimitatori ((( ))) / ((* *)))
 ├── templates/raccoglitore.tex.j2    # template LaTeX del raccoglitore
 ├── assets/logo_cai.png              # ritagliato e con sfondo trasparente
 ├── assets/logo_sicai.png            # logo Sentiero Italia / SICAI
+├── assets/sicai_tappe.geojson       # tracciato SICAI (525 tappe, overlay mappe)
+├── assets/limits_IT_regions.geojson # confini delle 20 regioni (overlay mappe)
+├── .tile_cache/                     # cache tile basemap (gitignorata)
 └── fonts/Montserrat-*.ttf
+```
+
+## Mappe dinamiche
+
+Le mappe di copertina (passaporto) e del retro (raccoglitore) sono
+generate a build-time da `genera_mappe.py`:
+
+- **basemap**: tile raster Webmapp (`https://api.webmapp.it/tiles/{z}/{x}/{y}.png`,
+  Web Mercator), scaricate al volo e cachate in `.tile_cache/`; lo zoom è
+  scelto in automatico per garantire ≥300 dpi alla dimensione di stampa;
+- **overlay vettoriale** (resta vettoriale nel PDF): tracciato SICAI da
+  `assets/sicai_tappe.geojson` (rosso CAI con alone bianco) e confini
+  regionali da `assets/limits_IT_regions.geojson`;
+- **raccoglitore** (89×70 mm): Italia intera + tracciato completo, velatura
+  leggera fuori dai confini nazionali;
+- **passaporto** (40×55 mm): zoom sulla/e regione/i del gruppo, confine
+  esterno evidenziato (blu CAI con alone), confini interni sottili nei
+  gruppi multiregione, tratto SICAI ritagliato sulle regioni
+  (intersezione geometrica con buffer 2 km — robusta rispetto alle
+  differenze di codifica `ref`/`sicai_ref`), velatura fuori dal gruppo.
+
+Le mappe di copertina sono salvate in `output/mappe/` (rigenerate a ogni
+build insieme ai passaporti; grazie alla cache tile l'operazione è rapida).
+Per generarle/verificarle senza compilare i PDF:
+
+```bash
+python genera_mappe.py
 ```
 
 ## Imposizione

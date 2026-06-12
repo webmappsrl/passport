@@ -10,7 +10,8 @@ lungo la piega verticale centrale, diventa un libretto A6 a 4 facciate
      identificativo da compilare a mano
   2. Presentazione (interno sinistra) — nome, cognome, foto, firma
   3. Cos'è il SICAI (interno destra) — testo progetto + QR app
-  4. Mappa del SICAI (esterno, retro copertina) — placeholder
+  4. Mappa del SICAI (esterno, retro copertina) — mappa dell'intero
+     percorso generata a build-time (genera_mappe.py)
 
 Riusa la pipeline del passaporto: Jinja2 → XeLaTeX (A6 sequenziale) →
 pypdf (imposizione 2x1 su A5 landscape).
@@ -27,6 +28,7 @@ from pathlib import Path
 
 import cairosvg
 
+from genera_mappe import genera_mappa_italia
 from genera_passaporto import (
     ASSET_DIR,
     FONT_DIR,
@@ -65,11 +67,16 @@ def genera_raccoglitore(output_dir: Path = OUTPUT_DIR) -> dict:
     out_stampa = output_dir / "raccoglitore_A5_stampa.pdf"
     out_stampa_margini = output_dir / "raccoglitore_A5_stampa_margini.pdf"
 
+    # mappa dell'intero percorso SICAI (path senza underscore: il
+    # finalize Jinja applica l'escaping LaTeX alle stringhe del contesto)
+    mappa_path = genera_mappa_italia(output_dir / "mappe" / "mappa-italia.pdf")
+
     with tempfile.TemporaryDirectory() as tmp:
         build_dir = Path(tmp)
         context = {
             "font_path": str(FONT_DIR) + "/",
             "asset_path": str(ASSET_DIR) + "/",
+            "mappa_path": str(mappa_path),
             **converti_qr_svg_png(build_dir),
         }
         tex_source = renderizza_tex(context, template="raccoglitore.tex.j2")

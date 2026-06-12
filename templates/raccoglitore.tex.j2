@@ -168,14 +168,13 @@
     {Che tu sia un escursionista esperto o un principiante, il Sentiero Italia ha qualcosa da offrire a tutti.\par\vspace{2.5mm}
      Scopri le tappe, prepara il tuo zaino e inizia la tua avventura nel cuore del Bel Paese.};
 
-  % placeholder mappa (89 x 70 mm, 4 mm sotto il testo)
+  % mappa dell'intero percorso (89 x 70 mm, 4 mm sotto il testo) —
+  % generata a build-time da genera_mappe.py (tile Webmapp + overlay SICAI)
   \coordinate (mapNW) at ([xshift=-44.5mm,yshift=-4mm]testomappa.south);
   \coordinate (mapSE) at ([xshift=44.5mm,yshift=-74mm]testomappa.south);
-  \draw[caiblulight, line width=0.5pt, dashed] (mapNW) rectangle (mapSE);
-  \node[anchor=center, align=center, text=caiblulight, inner sep=0pt,
-        font=\fontsize{7}{9}\selectfont]
-    at ($(mapNW)!0.5!(mapSE)$)
-    {Mappa dell'intero percorso};
+  \node[anchor=north west, inner sep=0pt] at (mapNW)
+    {\includegraphics[width=89mm, height=70mm]{((( mappa_path )))}};
+  \draw[caiblulight, line width=0.5pt] (mapNW) rectangle (mapSE);
 \end{tikzpicture}
 
 \end{document}

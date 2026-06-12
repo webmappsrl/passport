@@ -82,8 +82,14 @@
         font=\fontsize{6}{7.5}\selectfont]
     at (99mm, {-78mm - ((( loop.index0 * 7 )))mm})
     {((* if regioni_nome *)){\bfseries ((( stat.regione )))}\\((* endif *))
-     {\color{caiblulight}((( stat.tappe ))) tappe~·~((( stat.km ))) km~·~+((( stat.dislivello ))) m~/~--((( stat.discesa ))) m}};
+     {\color{caiblulight}((( stat.tappe ))) tappe~·~((( stat.km ))) km~·~D+ ((( stat.dislivello ))) m~/~D- ((( stat.discesa ))) m}};
   ((* endfor *))
+
+  % mappa regione/i (40 x 55 mm, basso a sinistra) — generata a
+  % build-time da genera_mappe.py (tile Webmapp + overlay SICAI)
+  \node[anchor=north west, inner sep=0pt] at (6mm,-80mm)
+    {\includegraphics[width=40mm, height=55mm]{((( mappa_path )))}};
+  \draw[caiblulight, line width=0.5pt] (6mm,-80mm) rectangle (46mm,-135mm);
 
   % url in basso a sinistra
   \node[anchor=south west, text=bianco, opacity=0.60, inner sep=0pt]
@@ -128,10 +134,10 @@
      ((* endif *))
      {\bfseries\color{caiblu}Km:} ((( cella.tappa.km )))\\[0.3mm]
      ((* if cella.tappa.dislivello *))
-     {\bfseries\color{caiblu}Dislivello positivo:} ((( cella.tappa.dislivello ))) m\\[0.3mm]
+     {\bfseries\color{caiblu}D+:} ((( cella.tappa.dislivello ))) m\\[0.3mm]
      ((* endif *))
      ((* if cella.tappa.discesa *))
-     {\bfseries\color{caiblu}Dislivello negativo:} ((( cella.tappa.discesa ))) m
+     {\bfseries\color{caiblu}D-:} ((( cella.tappa.discesa ))) m
      ((* endif *))
     };
   ((* endif *))

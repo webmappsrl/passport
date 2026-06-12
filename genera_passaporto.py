@@ -29,6 +29,8 @@ from pathlib import Path
 
 import jinja2
 import pandas as pd
+
+from genera_mappe import genera_mappa_gruppo
 from pypdf import PdfReader, PdfWriter, Transformation
 from pypdf.generic import RectangleObject
 from reportlab.lib.pagesizes import A4
@@ -79,11 +81,11 @@ GRUPPI: dict[str, dict] = {
         "formato": "A4",
     },
     "Centro Sud": {
-        "regioni": ["Marche", "Lazio", "Abruzzo", "Molise", "Basilicata"],
+        "regioni": ["Marche", "Lazio", "Abruzzo", "Molise", "Puglia"],
         "formato": "A4",
     },
     "Sud": {
-        "regioni": ["Puglia", "Campania", "Calabria"],
+        "regioni": ["Basilicata", "Campania", "Calabria"],
         "formato": "A4",
     },
     "Isole": {
@@ -170,7 +172,7 @@ def carica_tappe(regioni: list[str], excel_path: Path = EXCEL_PATH) -> list[dict
             # campi opzionali: None = non mostrare la riga sul passaporto
             "da": str(row["from"]).strip() if pd.notna(row["from"]) else None,
             "a": str(row["to"]).strip() if pd.notna(row["to"]) else None,
-            "km": f"{float(row['distance']):.1f}",
+            "km": str(round(float(row["distance"]))),
             "dislivello": str(int(row["ascent"])) if pd.notna(row["ascent"]) else None,
             "discesa": str(int(row["descent"])) if pd.notna(row["descent"]) else None,
             "difficolta": str(row["cai_scale"]).strip() if pd.notna(row["cai_scale"]) else "n.d.",
@@ -243,8 +245,7 @@ def costruisci_contesto(gruppo_nome: str, regioni: list[str], tappe: list[dict])
         statistiche_regioni.append({
             "regione": regione,
             "tappe": len(t_reg),
-            "km": f"{sum(t['km_val'] for t in t_reg):,.1f}"
-                  .replace(",", "X").replace(".", ",").replace("X", "."),
+            "km": _fmt_int(round(sum(t["km_val"] for t in t_reg))),
             "dislivello": _fmt_int(sum(t["ascent_val"] for t in t_reg)),
             "discesa": _fmt_int(sum(t["descent_val"] for t in t_reg)),
         })
@@ -537,14 +538,25 @@ def genera_passaporto(gruppo_nome: str, output_dir: Path = OUTPUT_DIR) -> dict:
     if not tappe:
         raise SystemExit("Nessuna tappa trovata per le regioni richieste.")
 
+    slug = re.sub(r"[^a-z0-9]+", "_", gruppo_nome.lower()).strip("_")
+    gruppo_dir = output_dir / slug
+    gruppo_dir.mkdir(parents=True, exist_ok=True)
+
+    # mappa di copertina in output/mappe/ (path senza underscore: il finalize
+    # Jinja applica l'escaping LaTeX a tutte le stringhe del contesto)
+    mappe_dir = output_dir / "mappe"
+    mappe_dir.mkdir(parents=True, exist_ok=True)
+    mappa_path = genera_mappa_gruppo(
+        regioni, mappe_dir / f"mappa-{slug.replace('_', '-')}.pdf"
+    )
+
     context = costruisci_contesto(gruppo_nome, regioni, tappe)
+    context["mappa_path"] = str(mappa_path)
     tex_source = renderizza_tex(context)
 
-    slug = re.sub(r"[^a-z0-9]+", "_", gruppo_nome.lower()).strip("_")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    out_a6 = output_dir / f"passaporto_{slug}_A6.pdf"
-    out_stampa = output_dir / f"passaporto_{slug}_{formato}_stampa.pdf"
-    out_stampa_margini = output_dir / f"passaporto_{slug}_{formato}_stampa_margini.pdf"
+    out_a6 = gruppo_dir / f"passaporto_{slug}_A6.pdf"
+    out_stampa = gruppo_dir / f"passaporto_{slug}_{formato}_stampa.pdf"
+    out_stampa_margini = gruppo_dir / f"passaporto_{slug}_{formato}_stampa_margini.pdf"
 
     with tempfile.TemporaryDirectory() as tmp:
         pdf_a6 = compila_xelatex(tex_source, Path(tmp))

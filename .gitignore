@@ -1,6 +1,9 @@
 # Output generati
 output/
 
+# Cache tile basemap (scaricate da api.webmapp.it)
+.tile_cache/
+
 # Python
 .venv/
 __pycache__/
