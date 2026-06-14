@@ -32,6 +32,7 @@ from genera_mappe import genera_mappa_italia
 from genera_passaporto import (
     ASSET_DIR,
     FONT_DIR,
+    MAPPA_CREDIT,
     MARGINE_STAMPA_MM,
     OUTPUT_DIR,
     compila_xelatex,
@@ -77,6 +78,7 @@ def genera_raccoglitore(output_dir: Path = OUTPUT_DIR) -> dict:
             "font_path": str(FONT_DIR) + "/",
             "asset_path": str(ASSET_DIR) + "/",
             "mappa_path": str(mappa_path),
+            "mappa_credit": MAPPA_CREDIT,
             **converti_qr_svg_png(build_dir),
         }
         tex_source = renderizza_tex(context, template="raccoglitore.tex.j2")

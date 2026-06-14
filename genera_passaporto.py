@@ -30,6 +30,7 @@ from pathlib import Path
 import jinja2
 import pandas as pd
 
+from genera_copertine import prepara_copertina
 from genera_mappe import genera_mappa_gruppo
 from pypdf import PdfReader, PdfWriter, Transformation
 from pypdf.generic import RectangleObject
@@ -53,6 +54,7 @@ TAPPE_PER_PAGINA = 12      # griglia 3x4 di timbri quadrati per pagina A6
 PAGINE_PER_FOGLIO_A4 = 8   # 4 slot fronte + 4 slot retro
 PAGINE_PER_FOGLIO_A5 = 4   # 2 pannelli fronte + 2 pannelli retro
 MARGINE_STAMPA_MM = 5      # margine per la versione "con margini di stampa"
+MAPPA_CREDIT = "© CAI © OpenStreetMap"
 
 # ----------------------------------------------------------------------
 # Raggruppamenti fissi: 8 passaporti, 1 foglio ciascuno.
@@ -250,6 +252,43 @@ def costruisci_contesto(gruppo_nome: str, regioni: list[str], tappe: list[dict])
             "discesa": _fmt_int(sum(t["descent_val"] for t in t_reg)),
         })
 
+    # blocco immagine + crediti: gap asimmetrico tra statistiche e URL footer
+    _STAT_START_MM = 62
+    _PER_ROW_MM = 8
+    _CREDIT_BAND_MM = 6
+    _URL_ANCHOR_MM = 143
+    _URL_HEIGHT_MM = 3.5
+    _FOOTER_MARGIN_MM = 3
+    _TOP_GAP_MM = 1
+    _BOTTOM_GAP_MM = 2
+    n_regioni = len(statistiche_regioni)
+    stat_tail_mm = 6 if not regioni_nome else 7
+    if regioni_nome:
+        # il pitch _PER_ROW_MM è la distanza TRA le righe (n-1 intervalli);
+        # l'ultima riga occupa solo la propria altezza (stat_tail_mm), quindi
+        # l'immagine può iniziare subito sotto il recap dell'ultima regione
+        stats_bottom_mm = _STAT_START_MM + (n_regioni - 1) * _PER_ROW_MM + stat_tail_mm
+        # gruppi multiregione: comprimi lo spazio sotto i crediti per allargare
+        # l'immagine anche in basso. I crediti scendono al seguito della foto e
+        # restano appena sopra l'URL; il gap sotto l'immagine resta = _TOP_GAP_MM
+        # (simmetrico con quello sopra, verso il recap regioni).
+        bottom_gap_mm = _TOP_GAP_MM
+        footer_margin_mm = 1
+    else:
+        stats_bottom_mm = _STAT_START_MM + stat_tail_mm
+        bottom_gap_mm = _BOTTOM_GAP_MM
+        footer_margin_mm = _FOOTER_MARGIN_MM
+    url_zone_top_mm = _URL_ANCHOR_MM - _URL_HEIGHT_MM - footer_margin_mm
+    available_mm = url_zone_top_mm - stats_bottom_mm
+    image_height_mm = max(
+        8,
+        available_mm - _CREDIT_BAND_MM - _TOP_GAP_MM - bottom_gap_mm,
+    )
+    placeholder_top_mm = stats_bottom_mm + _TOP_GAP_MM
+    placeholder_image_bottom_mm = placeholder_top_mm + image_height_mm
+    copertina_credit_line_mm = placeholder_image_bottom_mm + _TOP_GAP_MM
+    copertina_credit_text_mm = copertina_credit_line_mm + 0.5
+
     return {
         "gruppo_nome": gruppo_nome,
         "regioni_nome": regioni_nome,
@@ -257,6 +296,12 @@ def costruisci_contesto(gruppo_nome: str, regioni: list[str], tappe: list[dict])
         "pagine_timbri": pagine_timbri,
         "totale_tappe": len(tappe),
         "pagine_note": pagine_note,
+        "placeholder_top_mm": placeholder_top_mm,
+        "placeholder_image_bottom_mm": placeholder_image_bottom_mm,
+        "placeholder_image_height_mm": image_height_mm,
+        "copertina_credit_line_mm": copertina_credit_line_mm,
+        "copertina_credit_text_mm": copertina_credit_text_mm,
+        "mappa_credit": MAPPA_CREDIT,
         "font_path": str(FONT_DIR) + "/",
         "asset_path": str(ASSET_DIR) + "/",
     }
@@ -552,6 +597,14 @@ def genera_passaporto(gruppo_nome: str, output_dir: Path = OUTPUT_DIR) -> dict:
 
     context = costruisci_contesto(gruppo_nome, regioni, tappe)
     context["mappa_path"] = str(mappa_path)
+    copertina_path, credit_line1, credit_line2 = prepara_copertina(
+        slug,
+        context["placeholder_top_mm"],
+        context["placeholder_image_bottom_mm"],
+    )
+    context["copertina_path"] = str(copertina_path)
+    context["copertina_credit_line1"] = credit_line1
+    context["copertina_credit_line2"] = credit_line2
     tex_source = renderizza_tex(context)
 
     out_a6 = gruppo_dir / f"passaporto_{slug}_A6.pdf"

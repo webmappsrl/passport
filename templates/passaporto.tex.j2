@@ -53,6 +53,18 @@
   % sfondo pieno
   \fill[caiblu] (0,0) rectangle (105mm,-148mm);
 
+  % mappa regione/i (40 x 50 mm, in alto a sinistra) — generata a
+  % build-time da genera_mappe.py (tile Webmapp + overlay SICAI)
+  \node[anchor=north west, inner sep=0pt] at (6mm,-14mm)
+    {\includegraphics[width=40mm, height=50mm]{((( mappa_path )))}};
+  \draw[caiblulight, line width=0.5pt] (6mm,-14mm) rectangle (46mm,-64mm);
+  % credito cartografico (sotto la mappa, stesso stile dei crediti foto)
+  \draw[caiblulight, opacity=0.4, line width=0.3pt]
+    (6mm,-64.5mm) -- (46mm,-64.5mm);
+  \node[anchor=north east, align=right, text=bianco, opacity=0.85, inner sep=0pt]
+    at (46mm,-65mm)
+    {\itshape\fontsize{7}{8.5}\selectfont\mbox{((( mappa_credit )))}};
+
   % loghi affiancati, blocco allineato a destra (bordo dx a 99mm), top 14mm
   % sinistra: CAI — destra: SICAI
   \node[anchor=north east, inner sep=0pt] (logosi) at (99mm,-14mm)
@@ -60,36 +72,50 @@
   \node[anchor=north east, inner sep=0pt] at ([xshift=-6mm]logosi.north west)
     {\includegraphics[height=16mm]{((( asset_path )))logo_cai.png}};
 
-  % box PASSAPORTO (7mm sotto i loghi: -14 -16 -7 = -37mm)
-  \fill[bianco, rounded corners=2mm] (49mm,-37mm) rectangle (99mm,-47mm);
-  \node[anchor=center, text=caiblu, inner sep=0pt] at (74mm,-42mm)
-    {\fontsize{11}{13}\selectfont\bfseries PASSAPORTO};
+  % box PASSAPORTO (sotto i loghi, colonna destra — 50 mm, allineato al titolo)
+  \fill[bianco, rounded corners=2mm] (49mm,-34mm) rectangle (99mm,-43mm);
+  \node[anchor=center, text=caiblu, inner sep=0pt] at (74mm,-38.5mm)
+    {\fontsize{10}{12}\selectfont\bfseries PASSAPORTO};
 
-  % titolo (5mm sotto il box)
-  \node[anchor=north east, align=right, text=bianco, inner sep=0pt,
-        font=\fontsize{17}{18.7}\selectfont\bfseries]
-    at (99mm,-52mm)
-    {SENTIERO\\ITALIA CAI};
+  % titolo su una riga unica, stessa larghezza del box (50 mm)
+  \node[anchor=north east, inner sep=0pt, text=bianco]
+    at (99mm,-47mm)
+    {\resizebox{50mm}{!}{\bfseries SENTIERO ITALIA CAI}};
 
-  % nome del gruppo (5mm sotto il titolo)
+  % nome del gruppo (sotto il titolo)
   \node[anchor=north east, align=right, text=bianco, inner sep=0pt]
-    at (99mm,-70.5mm)
+    at (99mm,-56mm)
     {\fontsize{12}{15}\selectfont\bfseries ((( gruppo_nome )))};
 
   % statistiche aggregate per regione (tappe, km, dislivelli)
+  % vincolate alla colonna destra (49–99 mm), una riga per i valori
   ((* for stat in statistiche_regioni *))
   \node[anchor=north east, align=right, text=bianco, inner sep=0pt,
-        font=\fontsize{6}{7.5}\selectfont]
-    at (99mm, {-78mm - ((( loop.index0 * 7 )))mm})
-    {((* if regioni_nome *)){\bfseries ((( stat.regione )))}\\((* endif *))
-     {\color{caiblulight}((( stat.tappe ))) tappe~·~((( stat.km ))) km~·~D+ ((( stat.dislivello ))) m~/~D- ((( stat.discesa ))) m}};
+        text width=50mm,
+        font=\fontsize{7}{8.5}\selectfont\bfseries]
+    at (99mm, {-62mm - ((( loop.index0 * 8 )))mm})
+    {((* if regioni_nome *))((( stat.regione )))\\((* endif *))
+     \resizebox{50mm}{!}{\bfseries
+      ((( stat.tappe ))) tappe~·~((( stat.km ))) km~·~D+ ((( stat.dislivello ))) m~/~D- ((( stat.discesa ))) m}};
   ((* endfor *))
 
-  % mappa regione/i (40 x 55 mm, basso a sinistra) — generata a
-  % build-time da genera_mappe.py (tile Webmapp + overlay SICAI)
-  \node[anchor=north west, inner sep=0pt] at (6mm,-80mm)
-    {\includegraphics[width=40mm, height=55mm]{((( mappa_path )))}};
-  \draw[caiblulight, line width=0.5pt] (6mm,-80mm) rectangle (46mm,-135mm);
+  % foto copertina — slot dinamico sopra la fascia credito
+  \begin{scope}
+    \clip[rounded corners=2mm]
+      (6mm, -((( placeholder_top_mm )))mm) rectangle (99mm,-((( placeholder_image_bottom_mm )))mm);
+    \node[anchor=north west, inner sep=0pt] at (6mm,-((( placeholder_top_mm )))mm)
+      {\includegraphics[width=93mm, height=((( placeholder_image_height_mm )))mm, keepaspectratio=false]{((( copertina_path )))}};
+  \end{scope}
+  % credito fotografico (2 righe fisse — larghezza foto, niente a capo interno)
+  \draw[caiblulight, opacity=0.4, line width=0.3pt]
+    (6mm,-((( copertina_credit_line_mm )))mm) -- (99mm,-((( copertina_credit_line_mm )))mm);
+  \node[anchor=north east, align=right, text=bianco, opacity=0.85, inner sep=0pt]
+    at (99mm,-((( copertina_credit_text_mm )))mm)
+    {\resizebox{93mm}{!}{%
+      \shortstack[r]{%
+        {\itshape\fontsize{7}{8.5}\selectfont\mbox{((( copertina_credit_line1 )))}}\\[0.3mm]
+        {\itshape\fontsize{7}{8.5}\selectfont\mbox{((( copertina_credit_line2 )))}}%
+      }}};
 
   % url in basso a sinistra
   \node[anchor=south west, text=bianco, opacity=0.60, inner sep=0pt]
