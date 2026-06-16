@@ -21,11 +21,12 @@ COVER_OUTPUT_NAME = "cover.jpg"
 COVER_WIDTH_PX = 1100
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 PORTRAIT_THRESHOLD = 1.05
-CREDIT_SPLIT_MARKER = " FotoSICAI"
+CREDIT_SPLIT_MARKER = " Sentiero Italia CAI"
 
 
 def _split_credit(credit: str) -> tuple[str, str]:
-    """Divide la citazione: riga 1 = attribution, riga 2 = da FotoSICAI in poi."""
+    """Divide la citazione: riga 1 = attribution (autore/titolo/luogo),
+    riga 2 = da 'Sentiero Italia CAI' in poi (fonte + licenza CC BY)."""
     idx = credit.find(CREDIT_SPLIT_MARKER)
     if idx == -1:
         return credit, ""

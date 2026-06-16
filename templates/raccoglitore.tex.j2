@@ -42,14 +42,20 @@
   BoldItalicFont = *-BoldItalic,
 ]
 
+% testi secondari su sfondo blu: bianco pieno, grassetto
+\newcommand{\testofooter}[1]{%
+  {\bfseries\fontsize{7}{9}\selectfont\color{bianco}#1}}
+\newcommand{\creditolinea}[1]{%
+  {\bfseries\fontsize{7}{8.5}\selectfont\color{bianco}\mbox{#1}}}
+
 % ---- Header pagine interne ----
 % #1 = titolo sezione (es. "Presentazione")
 \newcommand{\pageheader}[1]{%
   \fill[caiblu] (0,0) rectangle (105mm,-14mm);
   \node[anchor=west, text=bianco, inner sep=0pt]
     at (5mm,-7mm) {\fontsize{9}{11}\selectfont\bfseries #1};
-  \node[anchor=east, text=bianco, opacity=0.55, inner sep=0pt]
-    at (100mm,-7mm) {\fontsize{7}{9}\selectfont Sentiero Italia CAI};
+  \node[anchor=east, text=bianco, inner sep=0pt]
+    at (100mm,-7mm) {\fontsize{7}{9}\selectfont\bfseries Sentiero Italia CAI};
 }
 
 \begin{document}
@@ -78,15 +84,15 @@
     {SENTIERO\\ITALIA CAI};
 
   % box bianco centrale per il numero identificativo (compilato a mano)
-  \node[anchor=north, align=center, text=caiblulight, inner sep=0pt]
+  \node[anchor=north, align=center, text=bianco, inner sep=0pt]
     at (52.5mm,-88mm)
-    {\fontsize{6}{7.5}\selectfont N. identificativo passaporto};
+    {\fontsize{6}{7.5}\selectfont\bfseries N. identificativo passaporto};
   \fill[bianco, rounded corners=2mm] (22.5mm,-93mm) rectangle (82.5mm,-107mm);
 
   % url in basso a sinistra
-  \node[anchor=south west, text=bianco, opacity=0.60, inner sep=0pt]
+  \node[anchor=south west, inner sep=0pt]
     at (6mm,-143mm)
-    {\fontsize{7}{9}\selectfont www.sentieroitalia.cai.it};
+    {\testofooter{www.sentieroitalia.cai.it}};
 \end{tikzpicture}
 
 %% ── PAGINA 2: PRESENTAZIONE (interno sinistra) ──────────────
@@ -178,9 +184,9 @@
   % credito cartografico (sotto la mappa, stesso stile dei crediti foto)
   \draw[caiblulight, opacity=0.4, line width=0.3pt]
     (mapNW |- mapSE) -- (mapSE);
-  \node[anchor=north east, align=right, text=bianco, opacity=0.85, inner sep=0pt]
+  \node[anchor=north east, align=right, inner sep=0pt]
     at ([yshift=-0.5mm]mapSE.south east)
-    {\itshape\fontsize{7}{8.5}\selectfont\mbox{((( mappa_credit )))}};
+    {\creditolinea{((( mappa_credit )))}};
 \end{tikzpicture}
 
 \end{document}

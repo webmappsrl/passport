@@ -23,7 +23,7 @@ from collections import defaultdict
 
 import pandas as pd
 
-from genera_passaporto import EXCEL_PATH, GRUPPI, risolvi_ref
+from genera_passaporto import EXCEL_PATH, GRUPPI, SHEET_TRACCIATI, risolvi_ref
 
 
 def parse_ref(ref: str) -> tuple[str, int | None, str]:
@@ -44,7 +44,7 @@ def fmt_code(prefix: str, num: int) -> str:
 
 
 def carica_dataset(excel_path) -> pd.DataFrame:
-    df = pd.read_excel(excel_path)
+    df = pd.read_excel(excel_path, sheet_name=SHEET_TRACCIATI)
     df["ref_completo"] = df.apply(risolvi_ref, axis=1)
     return df[df["ref_completo"].notna()].copy()
 

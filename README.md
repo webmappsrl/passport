@@ -43,7 +43,7 @@ per passaporto e regione: all'interno di ogni serie letterale (es. `N01`,
 python verifica_tappe.py              # report completo su stdout
 python verifica_tappe.py --json       # output strutturato (CI / script)
 python verifica_tappe.py --solo-assenti  # solo numeri base assenti dal dataset
-python verifica_tappe.py --excel path/to/tappe.xlsx  # file dati alternativo
+python verifica_tappe.py --excel path/to/tappe_passaporto.xlsx  # file dati alternativo
 ```
 
 Exit code: `0` se nessun salto, `1` se ne trova (utile in CI opzionale).
@@ -58,7 +58,7 @@ Per ogni salto il report indica:
 | Esito | Significato |
 |---|---|
 | **Presenti altrove** | il numero base esiste in un'altra regione (es. `N04` in Umbria mentre in Marche si salta da `N02` a `N06`) |
-| **Assenti dal dataset** | il numero base non compare da nessuna parte in `tappe.xlsx` (né come tappa né come lookup dello script) |
+| **Assenti dal dataset** | il numero base non compare da nessuna parte nel dataset (né come tappa né come lookup dello script) |
 
 Interpretazione tipica dei salti (controllo manuale sul dataset attuale):
 
@@ -71,6 +71,29 @@ Interpretazione tipica dei salti (controllo manuale sul dataset attuale):
   buchi reali sul numero base.
 - **Assenti davvero** (dataset corrente) — solo **G33** (Liguria) e
   **R04** (Puglia).
+
+## Dati tappe (`tappe_passaporto.xlsx`)
+
+Flusso dati:
+
+```
+tappe.xlsx  →  estrai_tappe_passaporto.py  →  tappe_passaporto.xlsx  →  genera_passaporto.py
+```
+
+- **`tappe.xlsx`** — export completo dal database (sviluppo).
+- **`tappe_passaporto.xlsx`** — file operativo per generazione e verifica:
+  sole colonne usate dal passaporto, fogli **Tracciati** e **Riepilogo per Regione**.
+
+Colonne foglio **Tracciati**: `id`, `ref` (risolto come sul timbro), `region`,
+`gruppo`, `from`, `to`, `distance`, `ascent`, `descent`.
+
+Colonne foglio **Riepilogo per Regione**: `lettera`, `region`, `gruppo`, `num_tappe`, `formato` (A4 / A5).
+
+```bash
+python estrai_tappe_passaporto.py   # rigenera tappe_passaporto.xlsx da tappe.xlsx
+```
+
+Da eseguire dopo ogni aggiornamento di `tappe.xlsx`, prima di rigenerare i passaporti.
 
 ## Raccoglitore del Camminatore
 
@@ -133,28 +156,40 @@ riquadro tratteggiato (testo centrato, a capo automatico) compaiono
 **inizio**, **arrivo**, **km**, **D+** e **D-** (dislivello positivo e
 negativo); i campi senza dato non vengono mostrati.
 
+Le pagine interne (timbri, note, presentazione ecc.) hanno un **header da 14 mm**
+con sfondo blu CAI: tutti i testi sono in **bianco grassetto**. Nel **passaporto**
+compare a sinistra il nome del gruppo (9/11 pt), al centro «Sentiero Italia CAI»
+(7/9 pt) e a destra «Tappe …» o «Note» (8/10 pt). Nel **raccoglitore** a sinistra
+il titolo di sezione (9/11 pt) e a destra «Sentiero Italia CAI» (7/9 pt).
+
 La **copertina** è organizzata in tre fasce:
 
 1. **Alto** — mappa del gruppo (40×50 mm, sinistra) con credito cartografico
-   sotto (corsivo ~7 pt, allineato a destra entro i 40 mm: `© CAI © OpenStreetMap`);
+   sotto (grassetto bianco ~7 pt, allineato a destra entro i 40 mm: `© CAI © OpenStreetMap`);
    loghi CAI/SICAI (destra); box bianco «PASSAPORTO» e titolo «SENTIERO ITALIA CAI»
    su una riga (stessa larghezza, 50 mm), allineati a destra.
-2. **Centro-destra** — nome del passaporto e statistiche aggregate per regione
-   (tappe, km, D+, D−), in bianco grassetto, vincolate alla colonna destra
-   (49–99 mm) su una sola riga ciascuna. Nei passaporti monoregione con nome
-   coincidente col gruppo il nome regione non viene ripetuto: il recap compare
-   alla stessa altezza del primo nome regione nei gruppi multiregione.
-3. **Basso** — blocco fotografia + crediti centrato verticalmente tra fine
-   elenco regioni e URL (`www.sentieroitalia.cai.it`): foto a tutta larghezza
-   (93 mm, altezza dinamica), citazione CC BY su **due righe** (attribution +
-   fonte/licenza da `FotoSICAI`), stessa dimensione tipografica, ~5 mm di aria
-   sopra l’URL. Nei gruppi **multiregione** la foto è allargata su entrambi i
-   lati: in alto inizia subito sotto il recap dell'ultima regione (il pitch
-   `_PER_ROW_MM` conta solo gli intervalli *tra* le righe, n−1, e l'ultima riga
-   occupa la sola `stat_tail_mm`); in basso scende di più e i crediti la seguono
-   restando appena sopra l'URL (gap inferiore = `_TOP_GAP_MM`, simmetrico con
-   quello superiore; `footer_margin` e `bottom_gap` ridotti). I gruppi
-   monoregione restano invariati.
+2. **Centro-destra** — blocco testo **uniforme** sotto «SENTIERO ITALIA CAI», in
+   bianco grassetto, allineato a destra (49–99 mm). Il blocco **risale** così che
+   il suo **fondo si allinei col fondo della mappa** a sinistra (colonna mappa e
+   colonna loghi+testo della stessa altezza):
+   1. **nome del passaporto** (es. *Centro Sud*) — node a −54 mm;
+   2. **elenco delle regioni** del gruppo su **una sola riga** separato da virgola
+      (es. *Marche, Lazio, Abruzzo, Molise, Puglia*) a −59,5 mm; nei passaporti
+      **monoregione** col nome coincidente col gruppo questa riga è **omessa**;
+   3. **recap unico totale** del gruppo — *N tappe · km totali · D+ · D−*. Nei
+      **multiregione** è in **riga 3** (−63 mm, fondo ≈ fondo mappa); nei
+      **monoregione** prende il **posto dell'elenco regioni** (riga 2, −59,5 mm),
+      così sta **subito dopo il nome**.
+3. **Basso** — blocco fotografia + crediti tra il blocco testo e l'URL
+   (`www.sentieroitalia.cai.it`): foto a tutta larghezza (93 mm), citazione
+   CC BY su **esattamente due righe** (attribuzione + fonte/licenza da `Sentiero
+   Italia CAI`), con **dimensione adattata** alla larghezza foto (93 mm) per stare
+   in due righe — **non** quella del credito mappa: la size si riduce quanto basta
+   (più piccola dove l'attribuzione è lunga, es. Nord Est), per massimizzare la
+   foto. Crediti appena sopra l'URL. Il **top dell'immagine**
+   sale appena sotto il credito cartografico della mappa: la foto è più alta in
+   alto ed **identica per tutti i passaporti** (mono e multiregione) — stesso
+   top/bottom, stesso crop.
 
 Ogni pagina timbri ospita **12 timbri quadrati** (griglia 3 colonne × 4
 righe sotto l'header da 14 mm). Capacità di un foglio A4: copertina +
@@ -170,7 +205,9 @@ progetto/
 ├── genera_mappe.py                  # mappe basemap Webmapp + overlay SICAI
 ├── genera_copertine.py              # ritaglio foto copertina + lettura credits
 ├── verifica_tappe.py                # controllo salti numerazione per passaporto/regione
-├── tappe.xlsx    # fonte dati (sviluppo; in prod: PostgreSQL)
+├── estrai_tappe_passaporto.py       # tappe.xlsx → tappe_passaporto.xlsx
+├── tappe.xlsx                       # export completo DB (sviluppo; in prod: PostgreSQL)
+├── tappe_passaporto.xlsx            # fonte dati passaporto (rigenerare dopo tappe.xlsx)
 ├── templates/passaporto.tex.j2      # template LaTeX (delimitatori ((( ))) / ((* *)))
 ├── templates/raccoglitore.tex.j2    # template LaTeX del raccoglitore
 ├── assets/logo_cai.png              # ritagliato e con sfondo trasparente
@@ -223,43 +260,40 @@ Le fotografie in basso sulla copertina sono preparate a build-time da
 | File | Descrizione |
 |---|---|
 | `original.jpg` (o `.jpeg`/`.png`) | immagine sorgente ad alta risoluzione |
-| `credits.txt` | citazione completa CC BY; in copertina divisa in due righe (split automatico su `FotoSICAI`) |
+| `credits.txt` | citazione completa CC BY; in copertina divisa in due righe (split automatico su `Sentiero Italia CAI`) |
 | `cover.jpg` | output generato (ritaglio + ridimensionamento; sovrascritto a ogni build) |
 
-Lo **slot foto** ha larghezza fissa 93 mm; altezza e posizione verticale sono
-calcolate in `costruisci_contesto()` con layout **asimmetrico** tra statistiche
-regione e URL: gap **1 mm** sopra l'immagine (vicino alle statistiche), banda
-crediti **6 mm**, gap sotto i crediti e margine footer prima dell'URL
-(`_TOP_GAP_MM`, `_BOTTOM_GAP_MM`, `_CREDIT_BAND_MM`, `_FOOTER_MARGIN_MM`).
-Altezza immagine = `placeholder_image_bottom − placeholder_top` mm.
-
-Nei gruppi **multiregione** la foto è ingrandita su entrambi i lati e i gruppi
-monoregione restano invariati:
-
-- **in alto** `placeholder_top` usa `(n_regioni − 1) * _PER_ROW_MM + stat_tail_mm`
-  (non `n_regioni * _PER_ROW_MM`): l'ultima riga del recap non riserva un pitch
-  intero, quindi la foto inizia più vicino al testo;
-- **in basso** lo spazio sotto i crediti è compresso (`bottom_gap = _TOP_GAP_MM`,
-  `footer_margin = 1 mm`): l'immagine scende di più e i crediti la seguono
-  restando appena sopra l'URL, con gap inferiore simmetrico a quello superiore.
+Lo **slot foto** ha larghezza fissa 93 mm e geometria **uniforme** per tutti i
+passaporti (mono e multiregione), calcolata in `costruisci_contesto()`. Poiché il
+blocco testo è ad altezza costante, `stats_bottom_mm` è una **costante**
+(`_STATS_BOTTOM_MM = 68`), quindi `placeholder_top_mm` e `placeholder_image_bottom_mm`
+sono fissi e identici per ogni gruppo → **stesso crop** in `genera_copertine.py`
+(rapporto `93 / altezza`). Il top immagine è alzato appena sotto il credito
+cartografico della mappa. Layout sotto al blocco testo: gap **1 mm** sopra
+l'immagine (`_TOP_GAP_MM`), banda crediti **5 mm** (`_CREDIT_BAND_MM`, credito su
+2 righe adattate), gap **1 mm** sotto i crediti (`_BOTTOM_GAP_MM`) e margine
+footer **1 mm** prima dell'URL (`_FOOTER_MARGIN_MM`); con questi valori
+`placeholder_top ≈ 69 mm`, `placeholder_image_bottom ≈ 132,5 mm`, altezza immagine
+≈ 63,5 mm.
 
 Il ritaglio rispetta l'aspect ratio dello slot:
 
 - immagini **verticali** (portrait): crop ancorato in **alto**;
 - immagini **orizzontali o quadrate**: crop **centrato**.
 
-Il **credito fotografico** compare subito sotto la linea separatrice
-(coordinate dinamiche), in corsivo ~7 pt su **esattamente due righe** con
-**stessa dimensione**: larghezza **93 mm** (allineata alla foto), un unico
-`\resizebox{93mm}{!}` sul blocco, `\shortstack` + `\mbox` su ciascuna riga
-(niente a capo interno); `\fontsize{7}{8.5}\selectfont` applicato
-**esplicitamente a ogni riga** (evita reset del font interno a `\shortstack`);
-split automatico su `FotoSICAI`. Margine ~3 mm tra fine crediti e URL.
+Il **credito fotografico** compare subito sotto la linea separatrice, su
+**esattamente due righe** in grassetto bianco con **stessa dimensione** per entrambe,
+**adattata** alla larghezza foto: un unico `\resizebox{93mm}{!}` su uno
+`\shortstack[r]` di due righe in `\mbox` (niente a capo), scalato perché la riga
+più larga (riga 1, attribuzione) misuri 93 mm. Lo split avviene su
+**`Sentiero Italia CAI`** (riga 2 = fonte + licenza CC BY). La dimensione
+risultante **non** è quella del credito mappa: varia per gruppo (più piccola dove
+l'attribuzione è lunga) così da restare su due righe e massimizzare la foto.
 
 Per testare il ritaglio senza compilare i PDF:
 
 ```bash
-python genera_copertine.py nord_est 72 118   # slug + top_mm + bottom_mm
+python genera_copertine.py nord_est 69 132.5   # slug + top_mm + bottom_mm
 ```
 
 In assenza di sorgente o `credits.txt` la generazione del passaporto
@@ -278,20 +312,22 @@ di riferimento). Un foglio A4 fronte/retro ospita 8 pagine logiche.
 ```
 FRONTE (esterno)            RETRO (interno, tutto dritto)
 ┌────────┬────────┐         ┌────────┬────────┐
-│  4 ↓   │  3 ↓   │         │   5    │   6    │
+│  3 ↓   │  2 ↓   │         │   4    │   5    │
 │ capov. │ capov. │         │        │        │
 ├────────┼────────┤         ├────────┼────────┤
-│   2    │   1    │         │   7    │   8    │
-│        │ coper- │         │        │ (Note) │
+│  8     │   1    │         │   6    │   7    │
+│ (Note) │ coper- │         │        │        │
 │        │ tina   │         │        │        │
 └────────┴────────┘         └────────┴────────┘
 ```
 
-Le tappe **iniziano nel primo slot dopo la copertina**; le eventuali
-pagine **Note cadono alla fine**, negli ultimi slot del foglio. Chiuso:
-copertina davanti. Aperto: l'interno A4 si legge come 4 sezioni A6
-dritte; le due sezioni esterne superiori sono capovolte perché risultino
-dritte dopo la piega orizzontale. Segni di piega tratteggiati ai bordi.
+Il PDF sequenziale ha solo copertina + timbri + Note (niente retro
+copertina). Le tappe **iniziano a pag. 2** nel fronte alto-dx (capovolto
+per la piega); proseguono in ordine 3→4→5→6→7; le eventuali **Note**
+cadono a pag. 8 (basso-sx fronte). Chiuso: copertina davanti. Aperto:
+l'interno A4 si legge come 4 sezioni A6 dritte (2→3→4→5); le sezioni
+superiori del fronte (2, 3) sono capovolte perché risultino dritte dopo
+la piega orizzontale. Segni di piega tratteggiati ai bordi.
 
 ### Valle d'Aosta — A5 landscape, piega unica (2×1)
 
@@ -323,8 +359,9 @@ sono speculari rispetto al fronte). Chiuso il passaporto misura
    `#`, `_` ecc.: un filtro `finalize` di Jinja2 li rende sicuri
    automaticamente su tutte le variabili stringa.
 
-3. **Gestione valori mancanti.** Il dataset contiene `from`, `to` e
-   `cai_scale` nulli: lo script stampa `—` / `n.d.` invece di `nan`.
+3. **Gestione valori mancanti.** Il dataset può avere `from`, `to`,
+   `ascent` o `descent` nulli: le righe corrispondenti non vengono
+   mostrate sul passaporto.
 
 4. **Ordinamento naturale dei ref** (`SI Z2` < `SI Z10`), robusto a
    formati di numerazione diversi tra regioni.
@@ -335,33 +372,38 @@ sono speculari rispetto al fronte). Chiuso il passaporto misura
 6. **Doppia passata XeLaTeX** (necessaria per i nodi TikZ
    `remember picture`) e `--halt-on-error` con log diagnostico.
 
-7. **Titolo copertina**: «SENTIERO ITALIA CAI» su una riga con
-   `\resizebox{50mm}{!}` per allinearlo al box bianco «PASSAPORTO»; le
-   statistiche regione usano `\resizebox` nella colonna destra (50 mm) per
-   restare su una sola riga senza sconfinare sotto la mappa.
+7. **Titolo e blocco regioni in copertina**: «SENTIERO ITALIA CAI» su una riga
+   con `\resizebox{50mm}{!}` per allinearlo al box bianco «PASSAPORTO». L'elenco
+   regioni e il recap totale usano invece la macro `\fitwidth{50mm}` (definita in
+   preambolo, basata solo su `graphicx`: niente `adjustbox`, non garantito in
+   TinyTeX): rimpicciolisce alla larghezza solo i testi che la eccedono e lascia
+   alla dimensione naturale quelli più corti (es. *Sicilia, Sardegna* non viene
+   ingrandito come farebbe `\resizebox` puro), garantendo comunque la riga unica.
 
 8. **Loghi pre-processati**: separazione delle due metà di
    `logghi_sicai_cai.png`, sfondo nero esterno reso trasparente con
    flood-fill dai bordi (i tratti neri interni dei disegni restano),
    rimozione delle strisce bianche residue di bordo.
 
-9. **Foto copertina dinamiche**: `costruisci_contesto()` calcola top/bottom
-   del blocco immagine+crediti (centrato tra statistiche e URL);
-   `genera_copertine.py` ritaglia l'originale al rapporto dello slot,
-   divide `credits.txt` in due righe al marker `FotoSICAI`; il template
-   applica un unico `\resizebox` per entrambe le righe credito.
+9. **Foto copertina uniformi**: `costruisci_contesto()` fissa top/bottom del
+   blocco immagine+crediti a valori **costanti** (slot identico per tutti i
+   gruppi); `genera_copertine.py` ritaglia l'originale al rapporto dello slot,
+   divide `credits.txt` al marker `Sentiero Italia CAI`; il template rende il
+   credito su **2 righe** con un unico `\resizebox{93mm}{!}` su uno `\shortstack`
+   di due righe in `\mbox` (stessa dimensione, adattata alla larghezza foto).
 
 10. **Crediti mappe**: costante `MAPPA_CREDIT` (`© CAI © OpenStreetMap`)
     passata al template via Jinja; sotto ogni mappa (40×50 mm in copertina
-    passaporto, 89×70 mm nel raccoglitore) linea separatrice + testo corsivo
-    7 pt allineato a destra, stesso stile dei crediti fotografici.
+    passaporto, 89×70 mm nel raccoglitore) linea separatrice + testo grassetto bianco
+    7 pt allineato a destra, stesso stile dei crediti fotografici e dell'URL
+    `www.sentieroitalia.cai.it` in fondo copertina.
 
 ## Migrazione a PostgreSQL
 
 In `carica_tappe()` sostituire la lettura Excel con:
 
 ```sql
-SELECT ref, "from", "to", distance, ascent, descent, cai_scale
+SELECT ref, "from", "to", distance, ascent, descent, region
 FROM ec_tracks
 WHERE region = ANY(%(regioni)s)
 ```

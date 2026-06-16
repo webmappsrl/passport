@@ -38,7 +38,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas as rl_canvas
 
 BASE_DIR = Path(__file__).resolve().parent
-EXCEL_PATH = BASE_DIR / "tappe.xlsx"
+EXCEL_SOURCE_PATH = BASE_DIR / "tappe.xlsx"
+EXCEL_PATH = BASE_DIR / "tappe_passaporto.xlsx"
+SHEET_TRACCIATI = "Tracciati"
 TEMPLATE_DIR = BASE_DIR / "templates"
 ASSET_DIR = BASE_DIR / "assets"
 FONT_DIR = BASE_DIR / "fonts"
@@ -139,8 +141,8 @@ def risolvi_ref(row) -> str | None:
 def carica_tappe(regioni: list[str], excel_path: Path = EXCEL_PATH) -> list[dict]:
     """Carica le tappe dal file Excel (in produzione: stessa struttura via
     query PostgreSQL su ec_tracks: ref, "from", "to", distance, ascent,
-    descent, cai_scale WHERE region = ANY(%(regioni)s))."""
-    df = pd.read_excel(excel_path)
+    descent, region WHERE region = ANY(%(regioni)s))."""
+    df = pd.read_excel(excel_path, sheet_name=SHEET_TRACCIATI)
 
     disponibili = set(df["region"].dropna().unique())
     mancanti = [r for r in regioni if r not in disponibili]
@@ -177,7 +179,11 @@ def carica_tappe(regioni: list[str], excel_path: Path = EXCEL_PATH) -> list[dict
             "km": str(round(float(row["distance"]))),
             "dislivello": str(int(row["ascent"])) if pd.notna(row["ascent"]) else None,
             "discesa": str(int(row["descent"])) if pd.notna(row["descent"]) else None,
-            "difficolta": str(row["cai_scale"]).strip() if pd.notna(row["cai_scale"]) else "n.d.",
+            "difficolta": (
+                str(row["cai_scale"]).strip()
+                if "cai_scale" in row.index and pd.notna(row["cai_scale"])
+                else "n.d."
+            ),
             # valori numerici grezzi per gli aggregati di copertina
             "km_val": float(row["distance"]) if pd.notna(row["distance"]) else 0.0,
             "ascent_val": int(row["ascent"]) if pd.notna(row["ascent"]) else 0,
@@ -232,57 +238,43 @@ def costruisci_contesto(gruppo_nome: str, regioni: list[str], tappe: list[dict])
     pagine_totali = math.ceil(pagine_logiche / 4) * 4
     pagine_note = pagine_totali - pagine_logiche
 
-    # se il passaporto ha una sola regione con lo stesso nome, non ripetere in copertina
-    regioni_nome = ""
+    # elenco regioni su riga unica separato da virgola; vuoto nei monoregione
+    # il cui nome coincide col gruppo (la riga 2 resta vuota, niente duplicato)
+    regioni_lista = ""
     if not (len(regioni) == 1 and gruppo_nome == regioni[0]):
-        regioni_nome = " · ".join(regioni)
+        regioni_lista = ", ".join(regioni)
 
-    # statistiche aggregate per regione (copertina), nell'ordine di GRUPPI
+    # recap UNICO aggregato su tutte le regioni del gruppo (riga 3 copertina)
     def _fmt_int(n: int) -> str:
         return f"{n:,}".replace(",", ".")
 
-    statistiche_regioni = []
-    for regione in regioni:
-        t_reg = [t for t in tappe if t["regione"] == regione]
-        statistiche_regioni.append({
-            "regione": regione,
-            "tappe": len(t_reg),
-            "km": _fmt_int(round(sum(t["km_val"] for t in t_reg))),
-            "dislivello": _fmt_int(sum(t["ascent_val"] for t in t_reg)),
-            "discesa": _fmt_int(sum(t["descent_val"] for t in t_reg)),
-        })
+    statistiche_totali = {
+        "tappe": len(tappe),
+        "km": _fmt_int(round(sum(t["km_val"] for t in tappe))),
+        "dislivello": _fmt_int(sum(t["ascent_val"] for t in tappe)),
+        "discesa": _fmt_int(sum(t["descent_val"] for t in tappe)),
+    }
 
-    # blocco immagine + crediti: gap asimmetrico tra statistiche e URL footer
-    _STAT_START_MM = 62
-    _PER_ROW_MM = 8
-    _CREDIT_BAND_MM = 6
+    # blocco immagine + crediti — geometria UNIFORME per tutti i gruppi (mono e
+    # multi): stats_bottom_mm è COSTANTE => slot foto identico => stesso crop in
+    # genera_copertine.py. Il blocco testo è sempre 3 righe a Y fisse (nome -56,
+    # elenco regioni -66, recap -72, vedi template); nei monoregione la riga 2
+    # non viene emessa ma il recap (riga 3) resta alla stessa Y, quindi nulla si
+    # sposta. Gap inferiore e margine footer unificati (era diverso mono/multi).
+    _STATS_BOTTOM_MM = 68        # fine blocco testo, costante per tutti i gruppi
+    _CREDIT_BAND_MM = 5          # credito foto 2 righe (size adattata a 93mm)
     _URL_ANCHOR_MM = 143
     _URL_HEIGHT_MM = 3.5
-    _FOOTER_MARGIN_MM = 3
+    _FOOTER_MARGIN_MM = 1
     _TOP_GAP_MM = 1
-    _BOTTOM_GAP_MM = 2
-    n_regioni = len(statistiche_regioni)
-    stat_tail_mm = 6 if not regioni_nome else 7
-    if regioni_nome:
-        # il pitch _PER_ROW_MM è la distanza TRA le righe (n-1 intervalli);
-        # l'ultima riga occupa solo la propria altezza (stat_tail_mm), quindi
-        # l'immagine può iniziare subito sotto il recap dell'ultima regione
-        stats_bottom_mm = _STAT_START_MM + (n_regioni - 1) * _PER_ROW_MM + stat_tail_mm
-        # gruppi multiregione: comprimi lo spazio sotto i crediti per allargare
-        # l'immagine anche in basso. I crediti scendono al seguito della foto e
-        # restano appena sopra l'URL; il gap sotto l'immagine resta = _TOP_GAP_MM
-        # (simmetrico con quello sopra, verso il recap regioni).
-        bottom_gap_mm = _TOP_GAP_MM
-        footer_margin_mm = 1
-    else:
-        stats_bottom_mm = _STAT_START_MM + stat_tail_mm
-        bottom_gap_mm = _BOTTOM_GAP_MM
-        footer_margin_mm = _FOOTER_MARGIN_MM
-    url_zone_top_mm = _URL_ANCHOR_MM - _URL_HEIGHT_MM - footer_margin_mm
+    _BOTTOM_GAP_MM = _TOP_GAP_MM
+
+    stats_bottom_mm = _STATS_BOTTOM_MM
+    url_zone_top_mm = _URL_ANCHOR_MM - _URL_HEIGHT_MM - _FOOTER_MARGIN_MM
     available_mm = url_zone_top_mm - stats_bottom_mm
     image_height_mm = max(
         8,
-        available_mm - _CREDIT_BAND_MM - _TOP_GAP_MM - bottom_gap_mm,
+        available_mm - _CREDIT_BAND_MM - _TOP_GAP_MM - _BOTTOM_GAP_MM,
     )
     placeholder_top_mm = stats_bottom_mm + _TOP_GAP_MM
     placeholder_image_bottom_mm = placeholder_top_mm + image_height_mm
@@ -291,8 +283,8 @@ def costruisci_contesto(gruppo_nome: str, regioni: list[str], tappe: list[dict])
 
     return {
         "gruppo_nome": gruppo_nome,
-        "regioni_nome": regioni_nome,
-        "statistiche_regioni": statistiche_regioni,
+        "regioni_lista": regioni_lista,
+        "statistiche_totali": statistiche_totali,
         "pagine_timbri": pagine_timbri,
         "totale_tappe": len(tappe),
         "pagine_note": pagine_note,
@@ -352,24 +344,23 @@ def compila_xelatex(tex_source: str, build_dir: Path) -> Path:
 #
 #   FRONTE (esterno)              RETRO (interno, tutto dritto)
 #   ┌─────────┬─────────┐         ┌─────────┬─────────┐
-#   │  4 ↓    │   3 ↓   │         │    5    │    6    │
+#   │  3 ↓    │   2 ↓   │         │    4    │    5    │
 #   │ (capov.)│ (capov.)│         │         │         │
 #   ├─────────┼─────────┤         ├─────────┼─────────┤
-#   │    2    │    1    │         │    7    │    8    │
-#   │ (retro  │ (coper- │         │         │ (Note)  │
-#   │  cop.)  │  tina)  │         │         │         │
+#   │  8      │    1    │         │    6    │    7    │
+#   │ (Note)  │ (coper- │         │         │         │
+#   │         │  tina)  │         │         │         │
 #   └─────────┴─────────┘         └─────────┴─────────┘
 #
-# Le tappe INIZIANO nel primo A4 (fronte alto = pagine 3 e 4, cioè le
-# prime pagine timbri, partendo dallo slot in alto a DESTRA); le
-# eventuali pagine Note cadono alla fine della sequenza, quindi negli
-# ultimi slot dell'ultimo foglio.
+# Il PDF sequenziale ha solo copertina + timbri + Note (niente retro
+# copertina). Le tappe INIZIANO a pag. 2 nel fronte alto-dx (slot
+# capovolto); proseguono 3→4→5→6→7; le eventuali Note cadono a pag. 8
+# (basso-sx fronte, slot ex retro copertina).
 #
-# Chiuso: copertina davanti (fronte basso-dx), retro copertina dietro
-# (fronte basso-sx). Aperto completamente: l'interno A4 si legge come
-# quattro sezioni A6 dritte (3→4→5→6); ripiegando si trovano le due
-# sezioni esterne superiori (7, 8), stampate capovolte perché risultino
-# dritte dopo la piega orizzontale.
+# Chiuso: copertina davanti (fronte basso-dx). Aperto completamente:
+# l'interno A4 si legge come quattro sezioni A6 dritte (2→3→4→5);
+# ripiegando si trovano le sezioni 6 e 7; la pag. 8 (Note) resta sul
+# retro esterno in basso-sx.
 
 # slot: (colonna, riga) con riga 0 = in alto
 _SLOT_TL, _SLOT_TR, _SLOT_BL, _SLOT_BR = (0, 0), (1, 0), (0, 1), (1, 1)
@@ -378,13 +369,13 @@ _SLOT_TL, _SLOT_TR, _SLOT_BL, _SLOT_BR = (0, 0), (1, 0), (0, 1), (1, 1)
 # lato 0 = fronte A4, lato 1 = retro A4
 _FOLD_LAYOUT = [
     (0, _SLOT_BR, False),  # 1: copertina
-    (0, _SLOT_BL, False),  # 2: retro copertina
-    (0, _SLOT_TR, True),   # 3: prime tappe (fronte alto-dx, capovolta)
-    (0, _SLOT_TL, True),   # 4: (fronte alto-sx, capovolta)
-    (1, _SLOT_TL, False),  # 5: interno
-    (1, _SLOT_TR, False),  # 6
-    (1, _SLOT_BL, False),  # 7
-    (1, _SLOT_BR, False),  # 8: ultima pagina del foglio (es. Note)
+    (0, _SLOT_TR, True),   # 2: prime tappe (alto-dx, capovolta)
+    (0, _SLOT_TL, True),   # 3
+    (1, _SLOT_TL, False),  # 4
+    (1, _SLOT_TR, False),  # 5
+    (1, _SLOT_BL, False),  # 6
+    (1, _SLOT_BR, False),  # 7: ultime tappe del foglio
+    (0, _SLOT_BL, False),  # 8: Note (basso-sx fronte, ex retro copertina)
 ]
 
 
@@ -653,7 +644,7 @@ def main():
     args = parser.parse_args()
 
     if args.list or (not args.gruppi and not args.all):
-        df = pd.read_excel(EXCEL_PATH)
+        df = pd.read_excel(EXCEL_PATH, sheet_name=SHEET_TRACCIATI)
         counts = df["region"].value_counts()
         print("Gruppi disponibili (tappe):")
         for nome, cfg in GRUPPI.items():

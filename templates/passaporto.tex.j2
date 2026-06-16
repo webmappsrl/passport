@@ -16,6 +16,13 @@
 \pagestyle{empty}
 \setlength{\parindent}{0pt}
 
+% riga a larghezza massima: scala SOLO in riduzione (a differenza di \resizebox
+% che ingrandirebbe anche i testi più corti della larghezza richiesta)
+\newsavebox{\fitbox}
+\newcommand{\fitwidth}[2]{%
+  \sbox{\fitbox}{#2}%
+  \ifdim\wd\fitbox>#1\relax\resizebox{#1}{!}{\usebox{\fitbox}}\else\usebox{\fitbox}\fi}
+
 % ---- Colori ----
 \definecolor{caiblu}{HTML}{1B3569}
 \definecolor{cailogoblu}{HTML}{0A4484}
@@ -34,16 +41,22 @@
   BoldItalicFont = *-BoldItalic,
 ]
 
+% testi secondari su sfondo blu: bianco pieno, grassetto
+\newcommand{\testofooter}[1]{%
+  {\bfseries\fontsize{7}{9}\selectfont\color{bianco}#1}}
+\newcommand{\creditolinea}[1]{%
+  {\bfseries\fontsize{7}{8.5}\selectfont\color{bianco}\mbox{#1}}}
+
 % ---- Header pagine interne (timbri / note) ----
 % #1 = etichetta destra (es. "Tappe 1–12" oppure "Note")
 \newcommand{\pageheader}[1]{%
   \fill[caiblu] (0,0) rectangle (105mm,-14mm);
   \node[anchor=west, text=bianco, inner sep=0pt]
     at (5mm,-7mm) {\fontsize{9}{11}\selectfont\bfseries ((( gruppo_nome )))};
-  \node[anchor=center, text=bianco, opacity=0.55, inner sep=0pt]
-    at (52.5mm,-7mm) {\fontsize{7}{9}\selectfont Sentiero Italia CAI};
-  \node[anchor=east, text=bianco, opacity=0.70, inner sep=0pt]
-    at (100mm,-7mm) {\fontsize{8}{10}\selectfont #1};
+  \node[anchor=center, text=bianco, inner sep=0pt]
+    at (52.5mm,-7mm) {\fontsize{7}{9}\selectfont\bfseries Sentiero Italia CAI};
+  \node[anchor=east, text=bianco, inner sep=0pt]
+    at (100mm,-7mm) {\fontsize{8}{10}\selectfont\bfseries #1};
 }
 
 \begin{document}
@@ -61,9 +74,9 @@
   % credito cartografico (sotto la mappa, stesso stile dei crediti foto)
   \draw[caiblulight, opacity=0.4, line width=0.3pt]
     (6mm,-64.5mm) -- (46mm,-64.5mm);
-  \node[anchor=north east, align=right, text=bianco, opacity=0.85, inner sep=0pt]
+  \node[anchor=north east, align=right, inner sep=0pt]
     at (46mm,-65mm)
-    {\itshape\fontsize{7}{8.5}\selectfont\mbox{((( mappa_credit )))}};
+    {\creditolinea{((( mappa_credit )))}};
 
   % loghi affiancati, blocco allineato a destra (bordo dx a 99mm), top 14mm
   % sinistra: CAI — destra: SICAI
@@ -84,20 +97,25 @@
 
   % nome del gruppo (sotto il titolo)
   \node[anchor=north east, align=right, text=bianco, inner sep=0pt]
-    at (99mm,-56mm)
+    at (99mm,-54mm)
     {\fontsize{12}{15}\selectfont\bfseries ((( gruppo_nome )))};
 
-  % statistiche aggregate per regione (tappe, km, dislivelli)
-  % vincolate alla colonna destra (49–99 mm), una riga per i valori
-  ((* for stat in statistiche_regioni *))
-  \node[anchor=north east, align=right, text=bianco, inner sep=0pt,
-        text width=50mm,
-        font=\fontsize{7}{8.5}\selectfont\bfseries]
-    at (99mm, {-62mm - ((( loop.index0 * 8 )))mm})
-    {((* if regioni_nome *))((( stat.regione )))\\((* endif *))
-     \resizebox{50mm}{!}{\bfseries
-      ((( stat.tappe ))) tappe~·~((( stat.km ))) km~·~D+ ((( stat.dislivello ))) m~/~D- ((( stat.discesa ))) m}};
-  ((* endfor *))
+  % riga 2: elenco regioni su riga unica (solo multiregione; nei monoregione
+  % regioni_lista è vuoto e il nodo non viene emesso)
+  ((* if regioni_lista *))
+  \node[anchor=north east, inner sep=0pt, text=bianco]
+    at (99mm,-59.5mm)
+    {\fitwidth{50mm}{\fontsize{7}{8.5}\selectfont\bfseries ((( regioni_lista )))}};
+  ((* endif *))
+
+  % recap UNICO aggregato del gruppo: riga 3 nei multiregione, riga 2 (subito
+  % dopo il nome, al posto dell'elenco regioni) nei monoregione. Il blocco testo
+  % risale così che il suo fondo si allinei col fondo della mappa a sinistra.
+  ((* set recap_y_mm = 63 if regioni_lista else 59.5 *))
+  \node[anchor=north east, inner sep=0pt, text=bianco]
+    at (99mm,-((( recap_y_mm )))mm)
+    {\fitwidth{50mm}{\fontsize{7.5}{9}\selectfont\bfseries
+      ((( statistiche_totali.tappe ))) tappe~·~((( statistiche_totali.km ))) km~·~D+ ((( statistiche_totali.dislivello ))) m~/~D- ((( statistiche_totali.discesa ))) m}};
 
   % foto copertina — slot dinamico sopra la fascia credito
   \begin{scope}
@@ -106,21 +124,23 @@
     \node[anchor=north west, inner sep=0pt] at (6mm,-((( placeholder_top_mm )))mm)
       {\includegraphics[width=93mm, height=((( placeholder_image_height_mm )))mm, keepaspectratio=false]{((( copertina_path )))}};
   \end{scope}
-  % credito fotografico (2 righe fisse — larghezza foto, niente a capo interno)
+  % credito fotografico: 2 righe, stessa dimensione ADATTATA alla larghezza foto
+  % (93 mm) — NON segue la dimensione del credito mappa. Riga 2 da
+  % "Sentiero Italia CAI". La size si riduce quanto basta per stare in 2 righe.
   \draw[caiblulight, opacity=0.4, line width=0.3pt]
     (6mm,-((( copertina_credit_line_mm )))mm) -- (99mm,-((( copertina_credit_line_mm )))mm);
-  \node[anchor=north east, align=right, text=bianco, opacity=0.85, inner sep=0pt]
+  \node[anchor=north east, align=right, inner sep=0pt]
     at (99mm,-((( copertina_credit_text_mm )))mm)
     {\resizebox{93mm}{!}{%
       \shortstack[r]{%
-        {\itshape\fontsize{7}{8.5}\selectfont\mbox{((( copertina_credit_line1 )))}}\\[0.3mm]
-        {\itshape\fontsize{7}{8.5}\selectfont\mbox{((( copertina_credit_line2 )))}}%
+        {\creditolinea{((( copertina_credit_line1 )))}}\\[0.3mm]
+        {\creditolinea{((( copertina_credit_line2 )))}}%
       }}};
 
   % url in basso a sinistra
-  \node[anchor=south west, text=bianco, opacity=0.60, inner sep=0pt]
+  \node[anchor=south west, inner sep=0pt]
     at (6mm,-143mm)
-    {\fontsize{7}{9}\selectfont www.sentieroitalia.cai.it};
+    {\testofooter{www.sentieroitalia.cai.it}};
 \end{tikzpicture}
 
 %% ── PAGINE TIMBRI ───────────────────────────────────────────
