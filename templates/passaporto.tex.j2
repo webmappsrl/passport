@@ -49,14 +49,18 @@
 
 % ---- Header pagine interne (timbri / note) ----
 % #1 = etichetta destra (es. "Tappe 1–12" oppure "Note")
-\newcommand{\pageheader}[1]{%
+% #2 = numerazione (es. "Pag. 1 di 7", senza copertina)
+\newcommand{\pageheader}[2]{%
   \fill[caiblu] (0,0) rectangle (105mm,-14mm);
   \node[anchor=west, text=bianco, inner sep=0pt]
     at (5mm,-7mm) {\fontsize{9}{11}\selectfont\bfseries ((( gruppo_nome )))};
   \node[anchor=center, text=bianco, inner sep=0pt]
     at (52.5mm,-7mm) {\fontsize{7}{9}\selectfont\bfseries Sentiero Italia CAI};
-  \node[anchor=east, text=bianco, inner sep=0pt]
-    at (100mm,-7mm) {\fontsize{8}{10}\selectfont\bfseries #1};
+  \node[anchor=east, align=right, text=bianco, inner sep=0pt]
+    at (100mm,-7mm) {%
+      \shortstack[r]{%
+        {\fontsize{8}{10}\selectfont\bfseries #1}\\[0.2mm]
+        {\fontsize{6}{7.5}\selectfont\bfseries #2}}};
 }
 
 \begin{document}
@@ -147,7 +151,7 @@
 ((* for pagina in pagine_timbri *))
 \newpage
 \begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
-  \pageheader{Tappe ((( pagina.ref_da )))--((( pagina.ref_a )))}
+  \pageheader{Tappe ((( pagina.ref_da )))--((( pagina.ref_a )))}{Pag. ((( loop.index ))) di ((( pagine_numerate )))}
 
   % griglia 3x4 (12 celle da 35 x 33.5 mm) sotto l'header da 14 mm
   ((* for cella in pagina.celle *))
@@ -193,9 +197,10 @@
 
 %% ── PAGINE NOTE (riempimento fino a multiplo di 4) ──────────
 ((* for _ in range(pagine_note) *))
+((* set pagina_num = pagine_timbri|length + loop.index *))
 \newpage
 \begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
-  \pageheader{Note}
+  \pageheader{Note}{Pag. ((( pagina_num ))) di ((( pagine_numerate )))}
   \foreach \i in {1,...,14} {
     \draw[grigiolinea, line width=0.3pt]
       (6mm, -14mm - 8mm - \i*8mm) -- (99mm, -14mm - 8mm - \i*8mm);

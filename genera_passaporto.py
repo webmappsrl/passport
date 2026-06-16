@@ -55,6 +55,8 @@ A5L_W, A5L_H = 210 * MM, 148 * MM  # A5 landscape (formato Val d'Aosta)
 TAPPE_PER_PAGINA = 12      # griglia 3x4 di timbri quadrati per pagina A6
 PAGINE_PER_FOGLIO_A4 = 8   # 4 slot fronte + 4 slot retro
 PAGINE_PER_FOGLIO_A5 = 4   # 2 pannelli fronte + 2 pannelli retro
+MAX_TAPPE_A4 = 84          # copertina + 7 pagine timbri × 12
+MAX_TAPPE_A5 = 36          # copertina + 3 pagine timbri × 12 (Val d'Aosta)
 MARGINE_STAMPA_MM = 5      # margine per la versione "con margini di stampa"
 MAPPA_CREDIT = "© CAI © OpenStreetMap"
 
@@ -138,25 +140,37 @@ def risolvi_ref(row) -> str | None:
     return None
 
 
-def carica_tappe(regioni: list[str], excel_path: Path = EXCEL_PATH) -> list[dict]:
-    """Carica le tappe dal file Excel (in produzione: stessa struttura via
-    query PostgreSQL su ec_tracks: ref, "from", "to", distance, ascent,
-    descent, region WHERE region = ANY(%(regioni)s))."""
+def carica_tappe(
+    gruppo_nome: str, regioni: list[str], excel_path: Path = EXCEL_PATH
+) -> list[dict]:
+    """Carica le tappe dal file Excel preservando l'ordine delle righe
+    (senso Sentiero Italia CAI nel foglio Tracciati).
+
+    In produzione: stessa struttura via query PostgreSQL con ORDER BY
+    esplicito sul percorso del sentiero."""
     df = pd.read_excel(excel_path, sheet_name=SHEET_TRACCIATI)
 
-    disponibili = set(df["region"].dropna().unique())
-    mancanti = [r for r in regioni if r not in disponibili]
-    if mancanti:
+    if "gruppo" not in df.columns:
         raise SystemExit(
-            f"Regione/i non trovata/e: {', '.join(mancanti)}.\n"
-            f"Disponibili: {', '.join(sorted(disponibili))}"
+            f"Colonna 'gruppo' assente in {excel_path.name} "
+            f"(foglio {SHEET_TRACCIATI})."
         )
 
-    df = df[df["region"].isin(regioni)].copy()
+    df = df[df["gruppo"] == gruppo_nome].copy()
+    if df.empty:
+        raise SystemExit(
+            f"Nessuna tappa per il gruppo {gruppo_nome!r} in {excel_path.name}."
+        )
 
-    # risoluzione del ref PRIMA dell'ordinamento: con il ref completo la
-    # tappa finisce nella posizione giusta (es. 'SI E46' tra E45 ed E47,
-    # non in testa) e l'header "Tappe X–Y" risulta corretto
+    regioni_presenti = set(df["region"].dropna().unique())
+    regioni_attese = set(regioni)
+    if regioni_presenti != regioni_attese:
+        raise SystemExit(
+            f"Regioni del gruppo {gruppo_nome!r} non coerenti con GRUPPI.\n"
+            f"  Attese: {', '.join(sorted(regioni_attese))}\n"
+            f"  Nel file: {', '.join(sorted(regioni_presenti))}"
+        )
+
     df["ref_completo"] = df.apply(risolvi_ref, axis=1)
     scartate = df[df["ref_completo"].isna()]
     for _, row in scartate.iterrows():
@@ -166,7 +180,6 @@ def carica_tappe(regioni: list[str], excel_path: Path = EXCEL_PATH) -> list[dict
             file=sys.stderr,
         )
     df = df[df["ref_completo"].notna()]
-    df = df.sort_values("ref_completo", key=lambda s: s.map(natural_ref_key))
 
     tappe = []
     for _, row in df.iterrows():
@@ -176,7 +189,11 @@ def carica_tappe(regioni: list[str], excel_path: Path = EXCEL_PATH) -> list[dict
             # campi opzionali: None = non mostrare la riga sul passaporto
             "da": str(row["from"]).strip() if pd.notna(row["from"]) else None,
             "a": str(row["to"]).strip() if pd.notna(row["to"]) else None,
-            "km": str(round(float(row["distance"]))),
+            "km": (
+                str(round(float(row["distance"])))
+                if pd.notna(row["distance"])
+                else "n.d."
+            ),
             "dislivello": str(int(row["ascent"])) if pd.notna(row["ascent"]) else None,
             "discesa": str(int(row["descent"])) if pd.notna(row["descent"]) else None,
             "difficolta": (
@@ -238,11 +255,11 @@ def costruisci_contesto(gruppo_nome: str, regioni: list[str], tappe: list[dict])
     pagine_totali = math.ceil(pagine_logiche / 4) * 4
     pagine_note = pagine_totali - pagine_logiche
 
-    # elenco regioni su riga unica separato da virgola; vuoto nei monoregione
-    # il cui nome coincide col gruppo (la riga 2 resta vuota, niente duplicato)
+    # elenco regioni su riga unica, ordine di percorrenza nel file Excel
+    regioni_ordinate = list(dict.fromkeys(t["regione"] for t in tappe))
     regioni_lista = ""
-    if not (len(regioni) == 1 and gruppo_nome == regioni[0]):
-        regioni_lista = ", ".join(regioni)
+    if not (len(regioni_ordinate) == 1 and gruppo_nome == regioni_ordinate[0]):
+        regioni_lista = ", ".join(regioni_ordinate)
 
     # recap UNICO aggregato su tutte le regioni del gruppo (riga 3 copertina)
     def _fmt_int(n: int) -> str:
@@ -288,6 +305,8 @@ def costruisci_contesto(gruppo_nome: str, regioni: list[str], tappe: list[dict])
         "pagine_timbri": pagine_timbri,
         "totale_tappe": len(tappe),
         "pagine_note": pagine_note,
+        "pagine_totali": pagine_totali,
+        "pagine_numerate": pagine_totali - 1,
         "placeholder_top_mm": placeholder_top_mm,
         "placeholder_image_bottom_mm": placeholder_image_bottom_mm,
         "placeholder_image_height_mm": image_height_mm,
@@ -570,9 +589,16 @@ def genera_passaporto(gruppo_nome: str, output_dir: Path = OUTPUT_DIR) -> dict:
     regioni = cfg["regioni"]
     formato = cfg["formato"]
 
-    tappe = carica_tappe(regioni)
+    tappe = carica_tappe(gruppo_nome, regioni)
     if not tappe:
         raise SystemExit("Nessuna tappa trovata per le regioni richieste.")
+
+    max_tappe = MAX_TAPPE_A5 if formato == "A5" else MAX_TAPPE_A4
+    if len(tappe) > max_tappe:
+        raise SystemExit(
+            f"Il gruppo {gruppo_nome!r} ha {len(tappe)} tappe: supera il limite "
+            f"di {max_tappe} tappe per un foglio {formato}."
+        )
 
     slug = re.sub(r"[^a-z0-9]+", "_", gruppo_nome.lower()).strip("_")
     gruppo_dir = output_dir / slug

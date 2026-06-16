@@ -87,6 +87,11 @@ tappe.xlsx  →  estrai_tappe_passaporto.py  →  tappe_passaporto.xlsx  →  ge
 Colonne foglio **Tracciati**: `id`, `ref` (risolto come sul timbro), `region`,
 `gruppo`, `from`, `to`, `distance`, `ascent`, `descent`.
 
+L'**ordine delle righe** nel foglio Tracciati segue il **senso del Sentiero
+Italia CAI** (da Sardegna verso Friuli): `carica_tappe()` lo preserva così com'è
+nel file, senza riordinamento alfabetico per ref. L'elenco regioni in copertina
+segue lo stesso ordine di percorrenza.
+
 Colonne foglio **Riepilogo per Regione**: `lettera`, `region`, `gruppo`, `num_tappe`, `formato` (A4 / A5).
 
 ```bash
@@ -128,18 +133,19 @@ a build-time (`cairosvg`) perché XeLaTeX non include direttamente gli SVG.
 
 ## Raggruppamenti (costante `GRUPPI`)
 
-| # | Gruppo | Regioni | Formato foglio | Tappe | Pag. timbri | Note |
+| # | Gruppo | Regioni (ordine percorrenza) | Formato foglio | Tappe | Pag. timbri | Note |
 |---|---|---|---|---:|---:|---:|
-| 1 | Nord Est | Friuli Venezia Giulia, Veneto, Trentino | A4 210×297 mm | 69 | 6 | 1 |
+| 1 | Nord Est | Veneto, Trentino, Friuli Venezia Giulia | A4 210×297 mm | 68 | 6 | 1 |
 | 2 | Lombardia | Lombardia | A4 210×297 mm | 60 | 5 | 2 |
 | 3 | Piemonte | Piemonte | A4 210×297 mm | 83 | 7 | 0 |
 | 4 | Valle d'Aosta | Valle d'Aosta | **A5 210×148 mm** | 20 | 2 | 1 |
-| 5 | Centro Nord | Liguria, Toscana/Emilia Romagna, Umbria | A4 210×297 mm | 77 | 7 | 0 |
-| 6 | Centro Sud | Marche, Lazio, Abruzzo, Molise, Puglia | A4 210×297 mm | 76 | 7 | 0 |
-| 7 | Sud | Basilicata, Campania, Calabria | A4 210×297 mm | 73 | 7 | 0 |
-| 8 | Isole | Sicilia, Sardegna | A4 210×297 mm | 67 | 6 | 1 |
+| 5 | Centro Nord | Umbria, Toscana/Emilia Romagna, Liguria | A4 210×297 mm | 78 | 7 | 0 |
+| 6 | Centro Sud | Puglia, Molise, Abruzzo, Lazio, Marche | A4 210×297 mm | 84 | 7 | 0 |
+| 7 | Sud | Calabria, Basilicata, Campania | A4 210×297 mm | 75 | 7 | 0 |
+| 8 | Isole | Sardegna, Sicilia | A4 210×297 mm | 67 | 6 | 1 |
 
-Totale: **525 tappe, 8 fogli** (7 A4 + 1 A5).
+Totale: **535 tappe, 8 fogli** (7 A4 + 1 A5). Il **Centro Sud** è al limite
+A4 (**84 tappe** = 7 pagine timbri, nessuna pagina Note di riempimento).
 
 ## Dimensioni
 
@@ -159,7 +165,8 @@ negativo); i campi senza dato non vengono mostrati.
 Le pagine interne (timbri, note, presentazione ecc.) hanno un **header da 14 mm**
 con sfondo blu CAI: tutti i testi sono in **bianco grassetto**. Nel **passaporto**
 compare a sinistra il nome del gruppo (9/11 pt), al centro «Sentiero Italia CAI»
-(7/9 pt) e a destra «Tappe …» o «Note» (8/10 pt). Nel **raccoglitore** a sinistra
+(7/9 pt) e a destra «Tappe …» o «Note» (8/10 pt) con sotto **«Pag. N di TOT»**
+(6/7,5 pt; la copertina non è numerata — pag. 1 = prima pagina timbri). Nel **raccoglitore** a sinistra
 il titolo di sezione (9/11 pt) e a destra «Sentiero Italia CAI» (7/9 pt).
 
 La **copertina** è organizzata in tre fasce:
@@ -213,7 +220,7 @@ progetto/
 ├── assets/logo_cai.png              # ritagliato e con sfondo trasparente
 ├── assets/logo_sicai.png            # logo Sentiero Italia / SICAI
 ├── assets/copertine/<slug>/         # foto copertina per ogni passaporto (vedi sotto)
-├── assets/sicai_tappe.geojson       # tracciato SICAI (525 tappe, overlay mappe)
+├── assets/sicai_tappe.geojson       # tracciato SICAI (overlay mappe)
 ├── assets/limits_IT_regions.geojson # confini delle 20 regioni (overlay mappe)
 ├── .tile_cache/                     # cache tile basemap (gitignorata)
 └── fonts/Montserrat-*.ttf
@@ -363,8 +370,10 @@ sono speculari rispetto al fronte). Chiuso il passaporto misura
    `ascent` o `descent` nulli: le righe corrispondenti non vengono
    mostrate sul passaporto.
 
-4. **Ordinamento naturale dei ref** (`SI Z2` < `SI Z10`), robusto a
-   formati di numerazione diversi tra regioni.
+4. **Ordine tappe nel passaporto**: le righe del foglio Tracciati in
+   `tappe_passaporto.xlsx` (senso Sentiero Italia CAI); nessun sort per ref
+   in `carica_tappe()`. La funzione `natural_ref_key` resta usata da
+   `verifica_tappe.py` e `estrai_tappe_passaporto.py`.
 
 5. **Segni di piega** sul PDF di stampa (overlay reportlab): croce 2×2
    per i fogli A4, piega verticale singola per l'A5 della Valle d'Aosta.
