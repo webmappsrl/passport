@@ -69,7 +69,7 @@ COL_VELATURA = "#FFFFFF"       # velatura fuori dalla zona di interesse
 # dei confini. Le voci assenti coincidono (es. "Lombardia").
 _REGIONE_GEOJSON = {
     "Friuli Venezia Giulia": ["Friuli-Venezia Giulia"],
-    "Trentino": ["Trentino-Alto Adige/Südtirol"],
+    "Trentino-Alto Adige": ["Trentino-Alto Adige/Südtirol"],
     "Valle d'Aosta": ["Valle d'Aosta/Vallée d'Aoste"],
     "Toscana/Emilia Romagna": ["Toscana", "Emilia-Romagna"],
 }
@@ -426,13 +426,13 @@ def genera_mappa_gruppo(regioni_gruppo: list[str], out_path: Path,
 # ----------------------------------------------------------------------
 
 def main():
-    from genera_passaporto import GRUPPI, OUTPUT_DIR  # import locale: evita ciclo
+    from genera_passaporto import OUTPUT_DIR, get_gruppi  # import locale: evita ciclo
 
     out_dir = OUTPUT_DIR / "mappe"
     print("Mappa Italia (raccoglitore)…")
     p = genera_mappa_italia(out_dir / "mappa-italia.pdf")
     print(f"  → {p}")
-    for nome, cfg in GRUPPI.items():
+    for nome, cfg in get_gruppi().items():
         slug = nome.lower().replace(" ", "-").replace("'", "")
         print(f"Mappa gruppo {nome} ({' · '.join(cfg['regioni'])})…")
         p = genera_mappa_gruppo(cfg["regioni"], out_dir / f"mappa-{slug}.pdf")

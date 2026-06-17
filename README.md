@@ -20,12 +20,24 @@ python verifica_tappe.py                   # controllo salti numerazione tappe
 
 Dopo ogni modifica alla copertina (template, layout, crediti foto o mappe,
 immagini), rigenerare sempre tutti i passaporti con `--all`, il raccoglitore
-con `genera_raccoglitore.py`, e aggiornare il README di conseguenza.
+con `genera_raccoglitore.py` (popola anche le cartelle di export piatte), e
+aggiornare il README di conseguenza.
 
 Per ogni gruppo vengono prodotti tre PDF in `output/<slug>/` (es.
 `output/nord_est/`, `output/valle_d_aosta/`):
 
 Le mappe di copertina sono in `output/mappe/` (cartella separata).
+
+Per la **stampa** sono disponibili due cartelle piatte in `output/` (tutti i
+file in root, senza sottocartelle per gruppo, **senza** PDF A6):
+
+| Cartella | Contenuto |
+|---|---|
+| `output/stampa/` | 8 passaporti + raccoglitore, versione **senza margini** (`*_stampa.pdf`) |
+| `output/stampa_margini/` | 8 passaporti + raccoglitore, versione **con margini** 5 mm (`*_stampa_margini.pdf`) |
+
+I PDF per gruppo in `output/<slug>/` (inclusi gli A6 per verifica a video)
+restano disponibili come prima.
 
 | File | Contenuto |
 |---|---|
@@ -82,23 +94,32 @@ tappe.xlsx  →  estrai_tappe_passaporto.py  →  tappe_passaporto.xlsx  →  ge
 
 - **`tappe.xlsx`** — export completo dal database (sviluppo).
 - **`tappe_passaporto.xlsx`** — file operativo per generazione e verifica:
-  sole colonne usate dal passaporto, fogli **Tracciati** e **Riepilogo per Regione**.
+  fogli **Tracciati**, **Riepilogo per Regione** e **Riepilogo per Gruppo**.
 
 Colonne foglio **Tracciati**: `id`, `ref` (risolto come sul timbro), `region`,
 `gruppo`, `from`, `to`, `distance`, `ascent`, `descent`.
 
 L'**ordine delle righe** nel foglio Tracciati segue il **senso del Sentiero
-Italia CAI** (da Sardegna verso Friuli): `carica_tappe()` lo preserva così com'è
-nel file, senza riordinamento alfabetico per ref. L'elenco regioni in copertina
-segue lo stesso ordine di percorrenza.
+Italia CAI** (da Sardegna verso Friuli). Nel PDF, `carica_tappe()` ordina le
+tappe per **blocco regionale** secondo l'ordine del foglio **Riepilogo per
+Regione** e, dentro ogni regione, preserva il senso di percorrenza del foglio
+Tracciati (evitando riordinamenti alfabetici per ref).
 
-Colonne foglio **Riepilogo per Regione**: `lettera`, `region`, `gruppo`, `num_tappe`, `formato` (A4 / A5).
+Colonne foglio **Riepilogo per Regione**: `lettera`, `region`, `gruppo`,
+`num_tappe`, `formato` (A4 / A5) — ordine regioni in copertina e percorrenza
+dentro ogni passaporto.
+
+Colonne foglio **Riepilogo per Gruppo**: `lettera`, `gruppo`, `num_totale`,
+`formato` — ordine dei passaporti, conteggio tappe atteso e formato foglio.
+`get_gruppi()` carica gruppi, regioni e formato da questi fogli.
 
 ```bash
 python estrai_tappe_passaporto.py   # rigenera tappe_passaporto.xlsx da tappe.xlsx
 ```
 
-Da eseguire dopo ogni aggiornamento di `tappe.xlsx`, prima di rigenerare i passaporti.
+Da eseguire dopo ogni aggiornamento di `tappe.xlsx`, prima di rigenerare i
+passaporti. Se si aggiorna `tappe_passaporto.xlsx` a mano, verificare che i
+tre fogli restino coerenti (in particolare `num_totale` nel Riepilogo per Gruppo).
 
 ## Raccoglitore del Camminatore
 
@@ -122,7 +143,7 @@ Le 4 facciate logiche (ordine sequenziale A6, imposte con
 
 | # | Facciata | Posizione | Contenuto |
 |---|---|---|---|
-| 1 | Copertina | esterno, fronte destra | stile copertina passaporto; box bianco centrale per il **numero identificativo** compilato a mano |
+| 1 | Copertina | esterno, fronte destra | stile copertina passaporto; etichetta **«N. identificativo passaporto»** in bianco grassetto 7/8,5 pt sopra il box bianco centrale per il numero compilato a mano |
 | 2 | Presentazione | interno sinistra | campi **Nome** e **Cognome**, riquadro 35×45 mm per la **foto tessera**, linea per la **firma** |
 | 3 | Cos'è il SICAI | interno destra | testo descrittivo del progetto + badge store e **QR code** app Android/iOS |
 | 4 | Mappa del SICAI | esterno, retro copertina | testo introduttivo + **mappa dell'intero percorso** generata a build-time + credito cartografico sotto la mappa |
@@ -131,18 +152,21 @@ Template:
 `templates/raccoglitore.tex.j2`. I QR code sono convertiti da SVG a PNG
 a build-time (`cairosvg`) perché XeLaTeX non include direttamente gli SVG.
 
-## Raggruppamenti (costante `GRUPPI`)
+## Raggruppamenti (`get_gruppi()` da Excel)
+
+Ordine passaporti, regioni per gruppo, formato e `num_totale` sono letti da
+`tappe_passaporto.xlsx` (fogli **Riepilogo per Gruppo** e **Riepilogo per Regione**).
 
 | # | Gruppo | Regioni (ordine percorrenza) | Formato foglio | Tappe | Pag. timbri | Note |
 |---|---|---|---|---:|---:|---:|
-| 1 | Nord Est | Veneto, Trentino, Friuli Venezia Giulia | A4 210×297 mm | 68 | 6 | 1 |
-| 2 | Lombardia | Lombardia | A4 210×297 mm | 60 | 5 | 2 |
-| 3 | Piemonte | Piemonte | A4 210×297 mm | 83 | 7 | 0 |
-| 4 | Valle d'Aosta | Valle d'Aosta | **A5 210×148 mm** | 20 | 2 | 1 |
-| 5 | Centro Nord | Umbria, Toscana/Emilia Romagna, Liguria | A4 210×297 mm | 78 | 7 | 0 |
-| 6 | Centro Sud | Puglia, Molise, Abruzzo, Lazio, Marche | A4 210×297 mm | 84 | 7 | 0 |
-| 7 | Sud | Calabria, Basilicata, Campania | A4 210×297 mm | 75 | 7 | 0 |
-| 8 | Isole | Sardegna, Sicilia | A4 210×297 mm | 67 | 6 | 1 |
+| 1 | Isole | Sardegna, Sicilia | A4 210×297 mm | 67 | 6 | 1 |
+| 2 | Sud | Calabria, Basilicata, Campania | A4 210×297 mm | 75 | 7 | 0 |
+| 3 | Centro Sud | Puglia, Molise, Abruzzo, Lazio, Marche | A4 210×297 mm | 84 | 7 | 0 |
+| 4 | Centro Nord | Umbria, Toscana/Emilia Romagna, Liguria | A4 210×297 mm | 78 | 7 | 0 |
+| 5 | Piemonte | Piemonte | A4 210×297 mm | 83 | 7 | 0 |
+| 6 | Valle d'Aosta | Valle d'Aosta | **A5 210×148 mm** | 20 | 2 | 1 |
+| 7 | Lombardia | Lombardia | A4 210×297 mm | 60 | 5 | 2 |
+| 8 | Nord Est | Veneto, Trentino-Alto Adige, Friuli Venezia Giulia | A4 210×297 mm | 68 | 6 | 1 |
 
 Totale: **535 tappe, 8 fogli** (7 A4 + 1 A5). Il **Centro Sud** è al limite
 A4 (**84 tappe** = 7 pagine timbri, nessuna pagina Note di riempimento).
@@ -167,12 +191,19 @@ con sfondo blu CAI: tutti i testi sono in **bianco grassetto**. Nel **passaporto
 compare a sinistra il nome del gruppo (9/11 pt), al centro «Sentiero Italia CAI»
 (7/9 pt) e a destra «Tappe …» o «Note» (8/10 pt) con sotto **«Pag. N di TOT»**
 (6/7,5 pt; la copertina non è numerata — pag. 1 = prima pagina timbri). Nel **raccoglitore** a sinistra
-il titolo di sezione (9/11 pt) e a destra «Sentiero Italia CAI» (7/9 pt).
+il titolo di sezione (9/11 pt) e a destra «Sentiero Italia CAI» (7/9 pt); sulla **copertina** l'etichetta
+«N. identificativo passaporto» sopra il box bianco è in bianco grassetto **7/8,5 pt**.
+
+Le pagine **Note** del passaporto (dove presenti) e la pagina **Presentazione**
+del raccoglitore hanno in filigrana il **logo CAI** centrato sul foglio A6
+(48 mm di altezza, opacità 12%), dietro header e contenuto — più grande dei
+loghi in copertina (16 mm, pieni) e non invasivo per la scrittura a mano.
 
 La **copertina** è organizzata in tre fasce:
 
-1. **Alto** — mappa del gruppo (40×50 mm, sinistra) con credito cartografico
-   sotto (grassetto bianco ~7 pt, allineato a destra entro i 40 mm: `© CAI © OpenStreetMap`);
+1. **Alto** — mappa del gruppo (40×50 mm, sinistra) con **bordi arrotondati 2 mm**
+   (come la foto di copertina) e credito cartografico sotto (grassetto bianco ~7 pt,
+   allineato a destra entro i 40 mm: `© CAI © OpenStreetMap`);
    loghi CAI/SICAI (destra); box bianco «PASSAPORTO» e titolo «SENTIERO ITALIA CAI»
    su una riga (stessa larghezza, 50 mm), allineati a destra.
 2. **Centro-destra** — blocco testo **uniforme** sotto «SENTIERO ITALIA CAI», in
@@ -207,7 +238,7 @@ copertina) è stata rimossa per liberare uno slot timbri nel foglio.
 
 ```
 progetto/
-├── genera_passaporto.py             # pipeline completa + GRUPPI
+├── genera_passaporto.py             # pipeline completa + get_gruppi()
 ├── genera_raccoglitore.py           # raccoglitore A5→A6 (riusa la pipeline)
 ├── genera_mappe.py                  # mappe basemap Webmapp + overlay SICAI
 ├── genera_copertine.py              # ritaglio foto copertina + lettura credits
@@ -238,12 +269,14 @@ generate a build-time da `genera_mappe.py`:
   `assets/sicai_tappe.geojson` (rosso CAI con alone bianco) e confini
   regionali da `assets/limits_IT_regions.geojson`;
 - **raccoglitore** (89×70 mm): Italia intera + tracciato completo, velatura
-  leggera fuori dai confini nazionali;
+  leggera fuori dai confini nazionali; bordi arrotondati **2 mm** come la foto
+  di copertina;
 - **passaporto** (40×50 mm): zoom sulla/e regione/i del gruppo, confine
   esterno evidenziato (blu CAI con alone), confini interni sottili nei
   gruppi multiregione, tratto SICAI ritagliato sulle regioni
   (intersezione geometrica con buffer 2 km — robusta rispetto alle
   differenze di codifica `ref`/`sicai_ref`), velatura fuori dal gruppo;
+  bordi arrotondati **2 mm**;
 - **attribuzione cartografica**: sotto ogni mappa (passaporto e raccoglitore)
   compare il credito fisso `© CAI © OpenStreetMap` (costante `MAPPA_CREDIT`
   in `genera_passaporto.py`), distinto dai crediti foto CC BY per regione
@@ -370,10 +403,11 @@ sono speculari rispetto al fronte). Chiuso il passaporto misura
    `ascent` o `descent` nulli: le righe corrispondenti non vengono
    mostrate sul passaporto.
 
-4. **Ordine tappe nel passaporto**: le righe del foglio Tracciati in
-   `tappe_passaporto.xlsx` (senso Sentiero Italia CAI); nessun sort per ref
-   in `carica_tappe()`. La funzione `natural_ref_key` resta usata da
-   `verifica_tappe.py` e `estrai_tappe_passaporto.py`.
+4. **Ordine tappe nel passaporto**: raggruppate per **regione** nell'ordine
+   del foglio **Riepilogo per Regione**; dentro ogni regione seguono il senso
+   del Sentiero Italia CAI nel foglio Tracciati. Gruppi/regioni/formato da
+   `get_gruppi()` (fogli Riepilogo). `natural_ref_key` resta in `verifica_tappe.py`
+   e `estrai_tappe_passaporto.py`.
 
 5. **Segni di piega** sul PDF di stampa (overlay reportlab): croce 2×2
    per i fogli A4, piega verticale singola per l'A5 della Valle d'Aosta.
@@ -405,7 +439,8 @@ sono speculari rispetto al fronte). Chiuso il passaporto misura
     passata al template via Jinja; sotto ogni mappa (40×50 mm in copertina
     passaporto, 89×70 mm nel raccoglitore) linea separatrice + testo grassetto bianco
     7 pt allineato a destra, stesso stile dei crediti fotografici e dell'URL
-    `www.sentieroitalia.cai.it` in fondo copertina.
+    `www.sentieroitalia.cai.it` in fondo copertina. Le mappe usano `\clip[rounded
+    corners=2mm]` e bordo con lo stesso raggio della foto di copertina.
 
 ## Migrazione a PostgreSQL
 

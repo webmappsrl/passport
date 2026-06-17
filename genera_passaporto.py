@@ -41,10 +41,14 @@ BASE_DIR = Path(__file__).resolve().parent
 EXCEL_SOURCE_PATH = BASE_DIR / "tappe.xlsx"
 EXCEL_PATH = BASE_DIR / "tappe_passaporto.xlsx"
 SHEET_TRACCIATI = "Tracciati"
+SHEET_RIEPILOGO_REGIONE = "Riepilogo per Regione"
+SHEET_RIEPILOGO_GRUPPO = "Riepilogo per Gruppo"
 TEMPLATE_DIR = BASE_DIR / "templates"
 ASSET_DIR = BASE_DIR / "assets"
 FONT_DIR = BASE_DIR / "fonts"
 OUTPUT_DIR = BASE_DIR / "output"
+DIR_STAMPA = OUTPUT_DIR / "stampa"
+DIR_STAMPA_MARGINI = OUTPUT_DIR / "stampa_margini"
 
 # Dimensioni in punti PostScript (1 mm = 72/25.4 pt)
 MM = 72 / 25.4
@@ -61,44 +65,44 @@ MARGINE_STAMPA_MM = 5      # margine per la versione "con margini di stampa"
 MAPPA_CREDIT = "© CAI © OpenStreetMap"
 
 # ----------------------------------------------------------------------
-# Raggruppamenti fissi: 8 passaporti, 1 foglio ciascuno.
+# Raggruppamenti: 8 passaporti, 1 foglio ciascuno (caricati da Excel).
 # Capacità per foglio: A4 = copertina + 7 pagine timbri (84 tappe max);
 # A5 (solo Val d'Aosta) = copertina + 3 facciate (36 tappe max).
 # ----------------------------------------------------------------------
-GRUPPI: dict[str, dict] = {
-    "Nord Est": {
-        "regioni": ["Friuli Venezia Giulia", "Veneto", "Trentino"],
-        "formato": "A4",
-    },
-    "Lombardia": {
-        "regioni": ["Lombardia"],
-        "formato": "A4",
-    },
-    "Piemonte": {
-        "regioni": ["Piemonte"],
-        "formato": "A4",
-    },
-    "Valle d'Aosta": {
-        "regioni": ["Valle d'Aosta"],
-        "formato": "A5",
-    },
-    "Centro Nord": {
-        "regioni": ["Liguria", "Toscana/Emilia Romagna", "Umbria"],
-        "formato": "A4",
-    },
-    "Centro Sud": {
-        "regioni": ["Marche", "Lazio", "Abruzzo", "Molise", "Puglia"],
-        "formato": "A4",
-    },
-    "Sud": {
-        "regioni": ["Basilicata", "Campania", "Calabria"],
-        "formato": "A4",
-    },
-    "Isole": {
-        "regioni": ["Sicilia", "Sardegna"],
-        "formato": "A4",
-    },
-}
+
+_GRUPPI_CACHE: dict[str, dict] | None = None
+
+
+def carica_gruppi_da_excel(excel_path: Path = EXCEL_PATH) -> dict[str, dict]:
+    """Ordine gruppi da Riepilogo per Gruppo; regioni e formato da Excel."""
+    rg = pd.read_excel(excel_path, sheet_name=SHEET_RIEPILOGO_GRUPPO)
+    rr = pd.read_excel(excel_path, sheet_name=SHEET_RIEPILOGO_REGIONE)
+    gruppi: dict[str, dict] = {}
+    for _, row in rg.iterrows():
+        nome = str(row["gruppo"]).strip()
+        regioni = rr.loc[rr["gruppo"] == nome, "region"].tolist()
+        if not regioni:
+            raise SystemExit(
+                f"Nessuna regione in {SHEET_RIEPILOGO_REGIONE} "
+                f"per il gruppo {nome!r}."
+            )
+        gruppi[nome] = {
+            "regioni": regioni,
+            "formato": str(row["formato"]).strip(),
+            "num_totale": int(row["num_totale"]),
+        }
+    return gruppi
+
+
+def get_gruppi(excel_path: Path = EXCEL_PATH) -> dict[str, dict]:
+    """Config gruppi in cache (ordine = foglio Riepilogo per Gruppo)."""
+    global _GRUPPI_CACHE
+    if _GRUPPI_CACHE is None:
+        _GRUPPI_CACHE = carica_gruppi_da_excel(excel_path)
+    return _GRUPPI_CACHE
+
+
+GRUPPI = get_gruppi()
 
 
 # ----------------------------------------------------------------------
@@ -143,20 +147,22 @@ def risolvi_ref(row) -> str | None:
 def carica_tappe(
     gruppo_nome: str, regioni: list[str], excel_path: Path = EXCEL_PATH
 ) -> list[dict]:
-    """Carica le tappe dal file Excel preservando l'ordine delle righe
-    (senso Sentiero Italia CAI nel foglio Tracciati).
+    """Carica le tappe dal file Excel per blocco regionale (ordine da
+    `regioni`, cioè foglio Riepilogo per Regione) e, dentro ogni regione,
+    preserva il senso del Sentiero Italia CAI nel foglio Tracciati.
 
     In produzione: stessa struttura via query PostgreSQL con ORDER BY
     esplicito sul percorso del sentiero."""
-    df = pd.read_excel(excel_path, sheet_name=SHEET_TRACCIATI)
+    df_full = pd.read_excel(excel_path, sheet_name=SHEET_TRACCIATI)
+    df_full["_idx_trail"] = df_full.index
 
-    if "gruppo" not in df.columns:
+    if "gruppo" not in df_full.columns:
         raise SystemExit(
             f"Colonna 'gruppo' assente in {excel_path.name} "
             f"(foglio {SHEET_TRACCIATI})."
         )
 
-    df = df[df["gruppo"] == gruppo_nome].copy()
+    df = df_full[df_full["gruppo"] == gruppo_nome].copy()
     if df.empty:
         raise SystemExit(
             f"Nessuna tappa per il gruppo {gruppo_nome!r} in {excel_path.name}."
@@ -166,10 +172,16 @@ def carica_tappe(
     regioni_attese = set(regioni)
     if regioni_presenti != regioni_attese:
         raise SystemExit(
-            f"Regioni del gruppo {gruppo_nome!r} non coerenti con GRUPPI.\n"
+            f"Regioni del gruppo {gruppo_nome!r} non coerenti con la config Excel.\n"
             f"  Attese: {', '.join(sorted(regioni_attese))}\n"
             f"  Nel file: {', '.join(sorted(regioni_presenti))}"
         )
+
+    ordine_regione = {r: i for i, r in enumerate(regioni)}
+    df["_ord_regione"] = df["region"].map(ordine_regione)
+    df = df.sort_values(["_ord_regione", "_idx_trail"]).drop(
+        columns=["_ord_regione", "_idx_trail"]
+    )
 
     df["ref_completo"] = df.apply(risolvi_ref, axis=1)
     scartate = df[df["ref_completo"].isna()]
@@ -255,11 +267,10 @@ def costruisci_contesto(gruppo_nome: str, regioni: list[str], tappe: list[dict])
     pagine_totali = math.ceil(pagine_logiche / 4) * 4
     pagine_note = pagine_totali - pagine_logiche
 
-    # elenco regioni su riga unica, ordine di percorrenza nel file Excel
-    regioni_ordinate = list(dict.fromkeys(t["regione"] for t in tappe))
+    # elenco regioni su riga unica, ordine Riepilogo per Regione
     regioni_lista = ""
-    if not (len(regioni_ordinate) == 1 and gruppo_nome == regioni_ordinate[0]):
-        regioni_lista = ", ".join(regioni_ordinate)
+    if not (len(regioni) == 1 and gruppo_nome == regioni[0]):
+        regioni_lista = ", ".join(regioni)
 
     # recap UNICO aggregato su tutte le regioni del gruppo (riga 3 copertina)
     def _fmt_int(n: int) -> str:
@@ -579,19 +590,44 @@ def imponi_su_a5(a6_pdf: Path, output_pdf: Path, crocini: bool = True,
 # Entry point
 # ----------------------------------------------------------------------
 
+def reset_cartelle_stampa(output_dir: Path = OUTPUT_DIR) -> None:
+    """Svuota le cartelle di export piatto prima di una rigenerazione --all."""
+    for nome in ("stampa", "stampa_margini"):
+        cartella = output_dir / nome
+        if not cartella.exists():
+            continue
+        for pdf in cartella.glob("*.pdf"):
+            pdf.unlink()
+
+
+def pubblica_pdf_stampa(src: Path, dest_dir: Path) -> Path:
+    """Copia un PDF di stampa nella cartella piatta di export."""
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / src.name
+    shutil.copy2(src, dest)
+    return dest
+
+
 def genera_passaporto(gruppo_nome: str, output_dir: Path = OUTPUT_DIR) -> dict:
-    if gruppo_nome not in GRUPPI:
+    gruppi = get_gruppi()
+    if gruppo_nome not in gruppi:
         raise SystemExit(
             f"Gruppo non trovato: {gruppo_nome!r}.\n"
-            f"Disponibili: {', '.join(GRUPPI)}"
+            f"Disponibili: {', '.join(gruppi)}"
         )
-    cfg = GRUPPI[gruppo_nome]
+    cfg = gruppi[gruppo_nome]
     regioni = cfg["regioni"]
     formato = cfg["formato"]
 
     tappe = carica_tappe(gruppo_nome, regioni)
     if not tappe:
         raise SystemExit("Nessuna tappa trovata per le regioni richieste.")
+
+    if len(tappe) != cfg["num_totale"]:
+        raise SystemExit(
+            f"Gruppo {gruppo_nome!r}: {len(tappe)} tappe caricate, "
+            f"attese {cfg['num_totale']} (Riepilogo per Gruppo)."
+        )
 
     max_tappe = MAX_TAPPE_A5 if formato == "A5" else MAX_TAPPE_A4
     if len(tappe) > max_tappe:
@@ -636,6 +672,9 @@ def genera_passaporto(gruppo_nome: str, output_dir: Path = OUTPUT_DIR) -> dict:
     n_fogli = imponi(out_a6, out_stampa)                          # senza margini (al vivo)
     imponi(out_a6, out_stampa_margini, margine_mm=MARGINE_STAMPA_MM)
 
+    pubblica_pdf_stampa(out_stampa, DIR_STAMPA)
+    pubblica_pdf_stampa(out_stampa_margini, DIR_STAMPA_MARGINI)
+
     info = {
         "gruppo": gruppo_nome,
         "regioni": regioni,
@@ -672,14 +711,18 @@ def main():
     if args.list or (not args.gruppi and not args.all):
         df = pd.read_excel(EXCEL_PATH, sheet_name=SHEET_TRACCIATI)
         counts = df["region"].value_counts()
+        gruppi = get_gruppi()
         print("Gruppi disponibili (tappe):")
-        for nome, cfg in GRUPPI.items():
+        for nome, cfg in gruppi.items():
             n = sum(int(counts.get(r, 0)) for r in cfg["regioni"])
             print(f"  {nome} [{cfg['formato']}]: {n} — {', '.join(cfg['regioni'])}")
         if not args.gruppi and not args.all:
             sys.exit(0)
 
-    da_generare = list(GRUPPI) if args.all else args.gruppi
+    gruppi = get_gruppi()
+    da_generare = list(gruppi) if args.all else args.gruppi
+    if args.all:
+        reset_cartelle_stampa(OUTPUT_DIR)
     for gruppo in da_generare:
         genera_passaporto(gruppo)
 

@@ -23,7 +23,7 @@ from collections import defaultdict
 
 import pandas as pd
 
-from genera_passaporto import EXCEL_PATH, GRUPPI, SHEET_TRACCIATI, risolvi_ref
+from genera_passaporto import EXCEL_PATH, SHEET_TRACCIATI, get_gruppi, risolvi_ref
 
 
 def parse_ref(ref: str) -> tuple[str, int | None, str]:
@@ -63,7 +63,7 @@ def analizza_salti(df: pd.DataFrame) -> list[dict]:
     ref_index = indice_globale(df)
     risultati: list[dict] = []
 
-    for passaporto, cfg in GRUPPI.items():
+    for passaporto, cfg in get_gruppi().items():
         regioni = cfg["regioni"]
         sub = df[df["region"].isin(regioni)]
 

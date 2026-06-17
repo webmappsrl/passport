@@ -31,12 +31,15 @@ import cairosvg
 from genera_mappe import genera_mappa_italia
 from genera_passaporto import (
     ASSET_DIR,
+    DIR_STAMPA,
+    DIR_STAMPA_MARGINI,
     FONT_DIR,
     MAPPA_CREDIT,
     MARGINE_STAMPA_MM,
     OUTPUT_DIR,
     compila_xelatex,
     imponi_su_a5,
+    pubblica_pdf_stampa,
     renderizza_tex,
 )
 
@@ -87,6 +90,9 @@ def genera_raccoglitore(output_dir: Path = OUTPUT_DIR) -> dict:
 
     n_fogli = imponi_su_a5(out_a6, out_stampa)                    # senza margini (al vivo)
     imponi_su_a5(out_a6, out_stampa_margini, margine_mm=MARGINE_STAMPA_MM)
+
+    pubblica_pdf_stampa(out_stampa, DIR_STAMPA)
+    pubblica_pdf_stampa(out_stampa_margini, DIR_STAMPA_MARGINI)
 
     info = {
         "fogli": n_fogli,

@@ -86,7 +86,7 @@
   % box bianco centrale per il numero identificativo (compilato a mano)
   \node[anchor=north, align=center, text=bianco, inner sep=0pt]
     at (52.5mm,-88mm)
-    {\fontsize{6}{7.5}\selectfont\bfseries N. identificativo passaporto};
+    {\fontsize{7}{8.5}\selectfont\bfseries N. identificativo passaporto};
   \fill[bianco, rounded corners=2mm] (22.5mm,-93mm) rectangle (82.5mm,-107mm);
 
   % url in basso a sinistra
@@ -98,6 +98,9 @@
 %% ── PAGINA 2: PRESENTAZIONE (interno sinistra) ──────────────
 \newpage
 \begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+  % filigrana logo CAI (centrata su A6, dietro header e campi)
+  \node[anchor=center, inner sep=0pt, opacity=0.12] at (52.5mm,-74mm)
+    {\includegraphics[height=48mm]{((( asset_path )))logo_cai.png}};
   \pageheader{Presentazione}
 
   % campo Nome
@@ -178,9 +181,13 @@
   % generata a build-time da genera_mappe.py (tile Webmapp + overlay SICAI)
   \coordinate (mapNW) at ([xshift=-44.5mm,yshift=-4mm]testomappa.south);
   \coordinate (mapSE) at ([xshift=44.5mm,yshift=-74mm]testomappa.south);
-  \node[anchor=north west, inner sep=0pt] at (mapNW)
-    {\includegraphics[width=89mm, height=70mm]{((( mappa_path )))}};
-  \draw[caiblulight, line width=0.5pt] (mapNW) rectangle (mapSE);
+  \begin{scope}
+    \clip[rounded corners=2mm] (mapNW) rectangle (mapSE);
+    \node[anchor=north west, inner sep=0pt] at (mapNW)
+      {\includegraphics[width=89mm, height=70mm]{((( mappa_path )))}};
+  \end{scope}
+  \draw[caiblulight, line width=0.5pt, rounded corners=2mm]
+    (mapNW) rectangle (mapSE);
   % credito cartografico (sotto la mappa, stesso stile dei crediti foto)
   \draw[caiblulight, opacity=0.4, line width=0.3pt]
     (mapNW |- mapSE) -- (mapSE);
