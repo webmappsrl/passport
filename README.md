@@ -181,10 +181,14 @@ A4 (**84 tappe** = 7 pagine timbri, nessuna pagina Note di riempimento).
 | Casella timbro (griglia 3×4, 12 per pagina) | cella 35 × 33,5 mm, zona timbro quadrata 26 × 26 mm |
 
 Ogni casella mostra il **ref** della tappa in alto a sinistra e il **nome
-regione** in alto a destra (font più piccolo, stessa riga); dentro il
-riquadro tratteggiato (testo centrato, a capo automatico) compaiono
-**inizio**, **arrivo**, **km**, **D+** e **D-** (dislivello positivo e
-negativo); i campi senza dato non vengono mostrati.
+regione** in alto a destra (font più piccolo, **grassetto**, stessa riga); dentro il
+riquadro tratteggiato (26×26 mm, testo centrato con a capo automatico)
+compaiono **Da**, **a**, **Km**, **D+** e **D-** con etichette brevi e
+**stessa dimensione** in tutta la cella: il corpo del testo scala in modo
+adattivo (5–8 pt) in base alla lunghezza dei nomi, per riempire il riquadro
+e massimizzare la leggibilità in stampa. Km, D+ e D- stanno **ciascuno su una
+riga propria** con interlinea uniforme (l'unità `m` non si separa mai dal
+valore); i campi senza dato non vengono mostrati.
 
 Le pagine interne (timbri, note, presentazione ecc.) hanno un **header da 14 mm**
 con sfondo blu CAI: tutti i testi sono in **bianco grassetto**. Nel **passaporto**

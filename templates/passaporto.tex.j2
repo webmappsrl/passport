@@ -172,27 +172,30 @@
   % regione — alto destra, font più piccolo
   \node[anchor=north east, inner sep=0pt, text width=20mm, align=right, opacity=0.85]
     at ({((( cx )))mm + 33mm}, {-((( cy )))mm - 1.5mm})
-    {\fontsize{4}{4.8}\selectfont\color{caiblu}{((( cella.tappa.regione )))}};
+    {\fontsize{4}{4.8}\selectfont\bfseries\color{caiblu}{((( cella.tappa.regione )))}};
   % zona timbro tratteggiata quadrata, centrata sotto il ref
   \draw[grigiolinea, line width=0.5pt, dashed]
     ({((( cx )))mm + 4.5mm}, {-((( cy )))mm - 6mm}) rectangle ++(26mm,-26mm);
-  % info tappa dentro il riquadro timbro (centrata in altezza, testo a capo)
-  \node[anchor=center, inner sep=0pt, text width=24mm, align=left]
+  % info tappa: riempie il riquadro timbro, font adattivo uniforme nella cella
+  ((* set lda = (cella.tappa.da|length) if cella.tappa.da else 0 *))
+  ((* set la = (cella.tappa.a|length) if cella.tappa.a else 0 *))
+  ((* set lab = lda + la *))
+  ((* if lab <= 22 *))((* set fs = 8 *))((* set bs = 9.6 *))
+  ((* elif lab <= 38 *))((* set fs = 7 *))((* set bs = 8.4 *))
+  ((* elif lab <= 60 *))((* set fs = 6 *))((* set bs = 7.2 *))
+  ((* elif lab <= 95 *))((* set fs = 5.5 *))((* set bs = 6.6 *))
+  ((* else *))((* set fs = 5 *))((* set bs = 6 *))((* endif *))
+  \node[anchor=center, inner sep=0pt, text width=24mm, align=center]
     at ({((( cx )))mm + 17.5mm}, {-((( cy )))mm - 19mm})
-    {\fontsize{4}{4.8}\selectfont\color{testoprimario}\raggedright
-     ((* if cella.tappa.da *))
-     {\bfseries\color{caiblu}Inizio:} ((( cella.tappa.da )))\\[0.3mm]
-     ((* endif *))
-     ((* if cella.tappa.a *))
-     {\bfseries\color{caiblu}Arrivo:} ((( cella.tappa.a )))\\[0.3mm]
-     ((* endif *))
-     {\bfseries\color{caiblu}Km:} ((( cella.tappa.km )))\\[0.3mm]
-     ((* if cella.tappa.dislivello *))
-     {\bfseries\color{caiblu}D+:} ((( cella.tappa.dislivello ))) m\\[0.3mm]
-     ((* endif *))
-     ((* if cella.tappa.discesa *))
-     {\bfseries\color{caiblu}D-:} ((( cella.tappa.discesa ))) m
-     ((* endif *))
+    {\fontsize{((( fs )))}{((( bs )))}\selectfont\color{testoprimario}
+     ((* if cella.tappa.da *)){\bfseries\color{caiblu}Da }((( cella.tappa.da ))) ((* endif *))%
+     ((* if cella.tappa.a *)){\bfseries\color{caiblu}a }((( cella.tappa.a )))((* endif *))%
+     ((* if cella.tappa.da or cella.tappa.a *))\\[0.35mm]((* endif *))
+     \shortstack[c]{%
+       \mbox{{\bfseries\color{caiblu}Km }((( cella.tappa.km )))}%
+       ((* if cella.tappa.dislivello *))\\[0.35mm]\mbox{{\bfseries\color{caiblu}D+ }((( cella.tappa.dislivello )))~m}((* endif *))%
+       ((* if cella.tappa.discesa *))\\[0.35mm]\mbox{{\bfseries\color{caiblu}D- }((( cella.tappa.discesa )))~m}((* endif *))%
+     }%
     };
   ((* endif *))
   ((* endfor *))
