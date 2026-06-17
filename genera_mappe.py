@@ -124,6 +124,24 @@ def _carica_tracciato():
     return unary_union(linee)
 
 
+@lru_cache(maxsize=1)
+def _indice_tappe_geojson() -> dict:
+    """sicai_ref → geometria della singola tappa (Web Mercator)."""
+    with open(TAPPE_GEOJSON, encoding="utf-8") as f:
+        data = json.load(f)
+    indice = {}
+    for feat in data["features"]:
+        ref = feat["properties"].get("sicai_ref")
+        if ref:
+            indice[str(ref).strip()] = _in_mercator(shape(feat["geometry"]))
+    return indice
+
+
+def ref_a_sicai_code(ref: str) -> str:
+    """Estrae il codice SICAI da un ref passaporto: 'SI V20' → 'V20'."""
+    return str(ref).strip().removeprefix("SI").strip()
+
+
 # ----------------------------------------------------------------------
 # Tile: zoom, download con cache, mosaico
 # ----------------------------------------------------------------------
@@ -418,6 +436,36 @@ def genera_mappa_gruppo(regioni_gruppo: list[str], out_path: Path,
     _disegna_tracciato(ax, tratto, tol)
 
     _salva(fig, z, bbox, w_mm, out_path)
+    return out_path
+
+
+def genera_filigrana_tracciato(
+    sicai_ref: str, out_path: Path, w_mm: float = 26, h_mm: float = 26
+) -> Path | None:
+    """Silhouette della singola tappa (rosso CAI su sfondo trasparente) da
+    usare come filigrana nel riquadro timbro. Ritorna None se la tappa non
+    ha geometria in sicai_tappe.geojson. PNG cachato su disco: rigenerato
+    solo se manca o se il geojson sorgente è più recente."""
+    code = str(sicai_ref).strip()
+    geom = _indice_tappe_geojson().get(code)
+    if geom is None or geom.is_empty:
+        return None
+
+    out_path = Path(out_path)
+    if out_path.exists() and out_path.stat().st_mtime >= TAPPE_GEOJSON.stat().st_mtime:
+        return out_path
+
+    bbox = _espandi_bbox(geom.bounds, w_mm / h_mm, padding=0.12)
+    tol = (bbox[2] - bbox[0]) / 1500
+
+    fig, ax = _nuova_figura(bbox, w_mm, h_mm)
+    fig.patch.set_alpha(0.0)
+    ax.patch.set_alpha(0.0)
+    _disegna_tracciato(ax, geom, tol, lw_alone=2.2, lw_linea=1.4)
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=DPI_STAMPA, transparent=True)
+    plt.close(fig)
     return out_path
 
 

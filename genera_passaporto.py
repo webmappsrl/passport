@@ -31,7 +31,7 @@ import jinja2
 import pandas as pd
 
 from genera_copertine import prepara_copertina
-from genera_mappe import genera_mappa_gruppo
+from genera_mappe import genera_filigrana_tracciato, genera_mappa_gruppo, ref_a_sicai_code
 from pypdf import PdfReader, PdfWriter, Transformation
 from pypdf.generic import RectangleObject
 from reportlab.lib.pagesizes import A4
@@ -647,6 +647,13 @@ def genera_passaporto(gruppo_nome: str, output_dir: Path = OUTPUT_DIR) -> dict:
     mappa_path = genera_mappa_gruppo(
         regioni, mappe_dir / f"mappa-{slug.replace('_', '-')}.pdf"
     )
+
+    # filigrana del tracciato per ogni tappa (sfondo del riquadro timbro)
+    filigrane_dir = mappe_dir / "filigrane"
+    for t in tappe:
+        code = ref_a_sicai_code(t["ref"])
+        path = genera_filigrana_tracciato(code, filigrane_dir / f"{code}.png")
+        t["tracciato_path"] = str(path) if path else None
 
     context = costruisci_contesto(gruppo_nome, regioni, tappe)
     context["mappa_path"] = str(mappa_path)

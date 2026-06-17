@@ -165,6 +165,12 @@
   % bordo cella
   \draw[grigiolinea, line width=0.4pt]
     ({((( cx )))mm}, {-((( cy )))mm}) rectangle ++(35mm,-33.5mm);
+  % filigrana tracciato tappa (centrata nel riquadro timbro 26x26 mm)
+  ((* if cella.tappa.tracciato_path *))
+  \node[anchor=center, inner sep=0pt, opacity=0.12]
+    at ({((( cx )))mm + 17.5mm}, {-((( cy )))mm - 19mm})
+    {\includegraphics[height=24mm]{((( cella.tappa.tracciato_path )))}};
+  ((* endif *))
   % ref tappa — alto sinistra
   \node[anchor=north west, inner sep=0pt]
     at ({((( cx )))mm + 2mm}, {-((( cy )))mm - 1.5mm})

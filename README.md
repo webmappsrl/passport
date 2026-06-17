@@ -188,7 +188,10 @@ compaiono **Da**, **a**, **Km**, **D+** e **D-** con etichette brevi e
 adattivo (5–8 pt) in base alla lunghezza dei nomi, per riempire il riquadro
 e massimizzare la leggibilità in stampa. Km, D+ e D- stanno **ciascuno su una
 riga propria** con interlinea uniforme (l'unità `m` non si separa mai dal
-valore); i campi senza dato non vengono mostrati.
+valore); i campi senza dato non vengono mostrati. Dietro al testo, **centrata
+nel riquadro**, c'è in **filigrana** la silhouette del **tracciato della tappa**
+(rosso CAI, opacità 12%, generata da `sicai_tappe.geojson`); le poche tappe
+senza geometria nel dataset non hanno filigrana.
 
 Le pagine interne (timbri, note, presentazione ecc.) hanno un **header da 14 mm**
 con sfondo blu CAI: tutti i testi sono in **bianco grassetto**. Nel **passaporto**
@@ -281,6 +284,11 @@ generate a build-time da `genera_mappe.py`:
   (intersezione geometrica con buffer 2 km — robusta rispetto alle
   differenze di codifica `ref`/`sicai_ref`), velatura fuori dal gruppo;
   bordi arrotondati **2 mm**;
+- **filigrane timbro** (26×26 mm): una per tappa, silhouette del solo
+  tracciato della tappa (rosso CAI con alone, **sfondo trasparente**, niente
+  basemap), salvate come PNG in `output/mappe/filigrane/<sicai_ref>.png` e
+  cachate su disco (rigenerate solo se `sicai_tappe.geojson` cambia); inserite
+  in filigrana (opacità 12%) dietro il testo di ogni casella timbro;
 - **attribuzione cartografica**: sotto ogni mappa (passaporto e raccoglitore)
   compare il credito fisso `© CAI © OpenStreetMap` (costante `MAPPA_CREDIT`
   in `genera_passaporto.py`), distinto dai crediti foto CC BY per regione
