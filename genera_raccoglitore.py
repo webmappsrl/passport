@@ -67,9 +67,13 @@ def converti_qr_svg_png(build_dir: Path) -> dict[str, str]:
 
 def genera_raccoglitore(output_dir: Path = OUTPUT_DIR) -> dict:
     output_dir.mkdir(parents=True, exist_ok=True)
-    out_a6 = output_dir / "raccoglitore_A6.pdf"
-    out_stampa = output_dir / "raccoglitore_A5_stampa.pdf"
-    out_stampa_margini = output_dir / "raccoglitore_A5_stampa_margini.pdf"
+    for pdf in output_dir.glob("raccoglitore*.pdf"):
+        pdf.unlink()
+    for pdf in output_dir.glob("0_raccoglitore*.pdf"):
+        pdf.unlink()
+    out_a6 = output_dir / "0_raccoglitore_A6.pdf"
+    out_stampa = output_dir / "0_raccoglitore_A5_stampa.pdf"
+    out_stampa_margini = output_dir / "0_raccoglitore_A5_stampa_margini.pdf"
 
     # mappa dell'intero percorso SICAI (path senza underscore: il
     # finalize Jinja applica l'escaping LaTeX alle stringhe del contesto)

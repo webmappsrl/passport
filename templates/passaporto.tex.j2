@@ -167,7 +167,7 @@
     ({((( cx )))mm}, {-((( cy )))mm}) rectangle ++(35mm,-33.5mm);
   % filigrana tracciato tappa (centrata nel riquadro timbro 26x26 mm)
   ((* if cella.tappa.tracciato_path *))
-  \node[anchor=center, inner sep=0pt, opacity=0.12]
+  \node[anchor=center, inner sep=0pt, opacity=0.2]
     at ({((( cx )))mm + 17.5mm}, {-((( cy )))mm - 19mm})
     {\includegraphics[height=24mm]{((( cella.tappa.tracciato_path )))}};
   ((* endif *))
@@ -175,10 +175,10 @@
   \node[anchor=north west, inner sep=0pt]
     at ({((( cx )))mm + 2mm}, {-((( cy )))mm - 1.5mm})
     {\fontsize{7}{8}\selectfont\bfseries\color{caiblu}{((( cella.tappa.ref )))}};
-  % regione — alto destra, font più piccolo
-  \node[anchor=north east, inner sep=0pt, text width=20mm, align=right, opacity=0.85]
+  % regione — alto destra, font più piccolo (una riga, scala in riduzione)
+  \node[anchor=north east, inner sep=0pt, opacity=0.85]
     at ({((( cx )))mm + 33mm}, {-((( cy )))mm - 1.5mm})
-    {\fontsize{4}{4.8}\selectfont\bfseries\color{caiblu}{((( cella.tappa.regione )))}};
+    {\fitwidth{18mm}{\mbox{\fontsize{4}{4.8}\selectfont\bfseries\color{caiblu}{((( cella.tappa.regione )))}}}};
   % zona timbro tratteggiata quadrata, centrata sotto il ref
   \draw[grigiolinea, line width=0.5pt, dashed]
     ({((( cx )))mm + 4.5mm}, {-((( cy )))mm - 6mm}) rectangle ++(26mm,-26mm);
@@ -214,7 +214,7 @@
 \newpage
 \begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
   % filigrana logo CAI (centrata su A6, dietro header e righe)
-  \node[anchor=center, inner sep=0pt, opacity=0.12] at (52.5mm,-74mm)
+  \node[anchor=center, inner sep=0pt, opacity=0.2] at (52.5mm,-74mm)
     {\includegraphics[height=48mm]{((( asset_path )))logo_cai.png}};
   \pageheader{Note}{Pag. ((( pagina_num ))) di ((( pagine_numerate )))}
   \foreach \i in {1,...,14} {

@@ -70,8 +70,11 @@ COL_VELATURA = "#FFFFFF"       # velatura fuori dalla zona di interesse
 _REGIONE_GEOJSON = {
     "Friuli Venezia Giulia": ["Friuli-Venezia Giulia"],
     "Trentino-Alto Adige": ["Trentino-Alto Adige/Südtirol"],
+    "Trentino - Alto Adige": ["Trentino-Alto Adige/Südtirol"],
     "Valle d'Aosta": ["Valle d'Aosta/Vallée d'Aoste"],
     "Toscana/Emilia Romagna": ["Toscana", "Emilia-Romagna"],
+    "Toscana / Emilia-Romagna": ["Toscana", "Emilia-Romagna"],
+    "Marche / Umbria": ["Marche", "Umbria"],
 }
 
 
@@ -440,12 +443,17 @@ def genera_mappa_gruppo(regioni_gruppo: list[str], out_path: Path,
 
 
 def genera_filigrana_tracciato(
-    sicai_ref: str, out_path: Path, w_mm: float = 26, h_mm: float = 26
+    sicai_ref: str, out_path: Path, w_mm: float = 26, h_mm: float = 26,
+    con_mappa: bool = False,
 ) -> Path | None:
-    """Silhouette della singola tappa (rosso CAI su sfondo trasparente) da
-    usare come filigrana nel riquadro timbro. Ritorna None se la tappa non
-    ha geometria in sicai_tappe.geojson. PNG cachato su disco: rigenerato
-    solo se manca o se il geojson sorgente è più recente."""
+    """Filigrana della singola tappa per il riquadro timbro. Ritorna None se
+    la tappa non ha geometria in sicai_tappe.geojson. PNG cachato su disco:
+    rigenerato solo se manca o se il geojson sorgente è più recente.
+
+    con_mappa=False (default): solo silhouette del tracciato (rosso CAI) su
+        sfondo trasparente.
+    con_mappa=True: basemap Webmapp sotto il tracciato, PNG opaco; stessa
+        bbox quadrata centrata sulla tappa."""
     code = str(sicai_ref).strip()
     geom = _indice_tappe_geojson().get(code)
     if geom is None or geom.is_empty:
@@ -457,6 +465,18 @@ def genera_filigrana_tracciato(
 
     bbox = _espandi_bbox(geom.bounds, w_mm / h_mm, padding=0.12)
     tol = (bbox[2] - bbox[0]) / 1500
+
+    if con_mappa:
+        z = _zoom_per_bbox(bbox, w_mm)
+        mosaico, extent = _mosaico(bbox, z)
+        fig, ax = _nuova_figura(bbox, w_mm, h_mm)
+        ax.imshow(np.asarray(mosaico), extent=extent, origin="upper",
+                  interpolation="bilinear", zorder=1)
+        _disegna_tracciato(ax, geom, tol, lw_alone=1.6, lw_linea=1.0)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(out_path, dpi=DPI_STAMPA)
+        plt.close(fig)
+        return out_path
 
     fig, ax = _nuova_figura(bbox, w_mm, h_mm)
     fig.patch.set_alpha(0.0)

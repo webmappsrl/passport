@@ -73,20 +73,63 @@ MAPPA_CREDIT = "© CAI © OpenStreetMap"
 _GRUPPI_CACHE: dict[str, dict] | None = None
 
 
+def nome_display_gruppo(gruppo_excel: str) -> str:
+    """Toglie il prefisso numerico del gruppo Excel: '1-Isole' → 'Isole'."""
+    return re.sub(r"^\d+-", "", str(gruppo_excel).strip())
+
+
+def ordine_gruppo_excel(gruppo_excel: str) -> int:
+    """Estrae l'ordine SICAI dal prefisso numerico: '1-Isole' → 1."""
+    m = re.match(r"^(\d+)-", str(gruppo_excel).strip())
+    if not m:
+        raise SystemExit(
+            f"Codice gruppo senza prefisso numerico in Excel: {gruppo_excel!r}"
+        )
+    return int(m.group(1))
+
+
 def carica_gruppi_da_excel(excel_path: Path = EXCEL_PATH) -> dict[str, dict]:
-    """Ordine gruppi da Riepilogo per Gruppo; regioni e formato da Excel."""
+    """Ordine gruppi da Riepilogo per Gruppo; regioni e formato da Excel.
+
+    La chiave del dict è il nome display (senza prefisso, es. 'Isole') usato
+    nei PDF e per lo slug; `gruppo_excel` conserva il codice grezzo
+    ('1-Isole') per filtrare i fogli Tracciati e Riepilogo per Regione. I
+    nomi regione sono risolti dal foglio Tracciati (su cui filtra
+    `carica_tappe`), nell'ordine delle lettere del foglio Riepilogo per
+    Regione."""
     rg = pd.read_excel(excel_path, sheet_name=SHEET_RIEPILOGO_GRUPPO)
     rr = pd.read_excel(excel_path, sheet_name=SHEET_RIEPILOGO_REGIONE)
+    tr = pd.read_excel(excel_path, sheet_name=SHEET_TRACCIATI)
+
+    # lettera → nome regione come compare nel foglio Tracciati
+    regione_per_lettera = (
+        tr.dropna(subset=["lettera", "region"])
+        .drop_duplicates("lettera")
+        .set_index("lettera")["region"]
+        .map(lambda r: str(r).strip())
+        .to_dict()
+    )
+
     gruppi: dict[str, dict] = {}
     for _, row in rg.iterrows():
-        nome = str(row["gruppo"]).strip()
-        regioni = rr.loc[rr["gruppo"] == nome, "region"].tolist()
+        gruppo_excel = str(row["gruppo"]).strip()
+        nome = nome_display_gruppo(gruppo_excel)
+
+        lettere = rr.loc[rr["Gruppo"] == gruppo_excel, "lettera"].tolist()
+        regioni: list[str] = []
+        for lettera in lettere:
+            regione = regione_per_lettera.get(str(lettera).strip())
+            if regione and regione not in regioni:
+                regioni.append(regione)
         if not regioni:
             raise SystemExit(
                 f"Nessuna regione in {SHEET_RIEPILOGO_REGIONE} "
-                f"per il gruppo {nome!r}."
+                f"per il gruppo {gruppo_excel!r}."
             )
+
         gruppi[nome] = {
+            "gruppo_excel": gruppo_excel,
+            "ordine": ordine_gruppo_excel(gruppo_excel),
             "regioni": regioni,
             "formato": str(row["formato"]).strip(),
             "num_totale": int(row["num_totale"]),
@@ -145,14 +188,20 @@ def risolvi_ref(row) -> str | None:
 
 
 def carica_tappe(
-    gruppo_nome: str, regioni: list[str], excel_path: Path = EXCEL_PATH
+    gruppo_nome: str, regioni: list[str], gruppo_excel: str | None = None,
+    excel_path: Path = EXCEL_PATH,
 ) -> list[dict]:
     """Carica le tappe dal file Excel per blocco regionale (ordine da
     `regioni`, cioè foglio Riepilogo per Regione) e, dentro ogni regione,
     preserva il senso del Sentiero Italia CAI nel foglio Tracciati.
 
+    Il foglio Tracciati ha la colonna `gruppo` col codice grezzo
+    ('1-Isole'): `gruppo_excel` è la chiave di filtro; `gruppo_nome` è il
+    nome display usato solo nei messaggi.
+
     In produzione: stessa struttura via query PostgreSQL con ORDER BY
     esplicito sul percorso del sentiero."""
+    gruppo_excel = gruppo_excel or gruppo_nome
     df_full = pd.read_excel(excel_path, sheet_name=SHEET_TRACCIATI)
     df_full["_idx_trail"] = df_full.index
 
@@ -162,7 +211,7 @@ def carica_tappe(
             f"(foglio {SHEET_TRACCIATI})."
         )
 
-    df = df_full[df_full["gruppo"] == gruppo_nome].copy()
+    df = df_full[df_full["gruppo"] == gruppo_excel].copy()
     if df.empty:
         raise SystemExit(
             f"Nessuna tappa per il gruppo {gruppo_nome!r} in {excel_path.name}."
@@ -608,7 +657,9 @@ def pubblica_pdf_stampa(src: Path, dest_dir: Path) -> Path:
     return dest
 
 
-def genera_passaporto(gruppo_nome: str, output_dir: Path = OUTPUT_DIR) -> dict:
+def genera_passaporto(
+    gruppo_nome: str, output_dir: Path = OUTPUT_DIR, filigrana_mappa: bool = False
+) -> dict:
     gruppi = get_gruppi()
     if gruppo_nome not in gruppi:
         raise SystemExit(
@@ -619,7 +670,7 @@ def genera_passaporto(gruppo_nome: str, output_dir: Path = OUTPUT_DIR) -> dict:
     regioni = cfg["regioni"]
     formato = cfg["formato"]
 
-    tappe = carica_tappe(gruppo_nome, regioni)
+    tappe = carica_tappe(gruppo_nome, regioni, cfg["gruppo_excel"])
     if not tappe:
         raise SystemExit("Nessuna tappa trovata per le regioni richieste.")
 
@@ -637,8 +688,11 @@ def genera_passaporto(gruppo_nome: str, output_dir: Path = OUTPUT_DIR) -> dict:
         )
 
     slug = re.sub(r"[^a-z0-9]+", "_", gruppo_nome.lower()).strip("_")
-    gruppo_dir = output_dir / slug
+    prefisso = f"{cfg['ordine']}_"
+    gruppo_dir = output_dir / f"{cfg['ordine']}_{slug}"
     gruppo_dir.mkdir(parents=True, exist_ok=True)
+    for pdf in gruppo_dir.glob("*.pdf"):
+        pdf.unlink()
 
     # mappa di copertina in output/mappe/ (path senza underscore: il finalize
     # Jinja applica l'escaping LaTeX a tutte le stringhe del contesto)
@@ -648,11 +702,14 @@ def genera_passaporto(gruppo_nome: str, output_dir: Path = OUTPUT_DIR) -> dict:
         regioni, mappe_dir / f"mappa-{slug.replace('_', '-')}.pdf"
     )
 
-    # filigrana del tracciato per ogni tappa (sfondo del riquadro timbro)
-    filigrane_dir = mappe_dir / "filigrane"
+    # filigrana del tracciato per ogni tappa (sfondo del riquadro timbro);
+    # con filigrana_mappa la silhouette ha sotto la basemap Webmapp
+    filigrane_dir = mappe_dir / ("filigrane_mappa" if filigrana_mappa else "filigrane")
     for t in tappe:
         code = ref_a_sicai_code(t["ref"])
-        path = genera_filigrana_tracciato(code, filigrane_dir / f"{code}.png")
+        path = genera_filigrana_tracciato(
+            code, filigrane_dir / f"{code}.png", con_mappa=filigrana_mappa
+        )
         t["tracciato_path"] = str(path) if path else None
 
     context = costruisci_contesto(gruppo_nome, regioni, tappe)
@@ -667,9 +724,11 @@ def genera_passaporto(gruppo_nome: str, output_dir: Path = OUTPUT_DIR) -> dict:
     context["copertina_credit_line2"] = credit_line2
     tex_source = renderizza_tex(context)
 
-    out_a6 = gruppo_dir / f"passaporto_{slug}_A6.pdf"
-    out_stampa = gruppo_dir / f"passaporto_{slug}_{formato}_stampa.pdf"
-    out_stampa_margini = gruppo_dir / f"passaporto_{slug}_{formato}_stampa_margini.pdf"
+    out_a6 = gruppo_dir / f"{prefisso}passaporto_{slug}_A6.pdf"
+    out_stampa = gruppo_dir / f"{prefisso}passaporto_{slug}_{formato}_stampa.pdf"
+    out_stampa_margini = (
+        gruppo_dir / f"{prefisso}passaporto_{slug}_{formato}_stampa_margini.pdf"
+    )
 
     with tempfile.TemporaryDirectory() as tmp:
         pdf_a6 = compila_xelatex(tex_source, Path(tmp))
@@ -713,6 +772,9 @@ def main():
                         help="Genera tutti gli 8 passaporti")
     parser.add_argument("--list", action="store_true",
                         help="Elenca i gruppi disponibili")
+    parser.add_argument("--filigrana-mappa", action="store_true",
+                        help="Filigrana timbro con basemap + tracciato "
+                             "(default: solo tracciato)")
     args = parser.parse_args()
 
     if args.list or (not args.gruppi and not args.all):
@@ -731,7 +793,7 @@ def main():
     if args.all:
         reset_cartelle_stampa(OUTPUT_DIR)
     for gruppo in da_generare:
-        genera_passaporto(gruppo)
+        genera_passaporto(gruppo, filigrana_mappa=args.filigrana_mappa)
 
 
 if __name__ == "__main__":

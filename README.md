@@ -2,9 +2,9 @@
 
 Generatore di passaporti stampabili: pagine A6 (105×148 mm) compilate con
 XeLaTeX e imposte a valle con pypdf. Le 19 regioni del Sentiero Italia sono
-raggruppate in **8 passaporti**, ciascuno contenuto in **1 solo foglio**:
-7 passaporti su A4 fronte/retro (piega a croce) e il passaporto della Val
-d'Aosta su A5 landscape fronte/retro (piega unica).
+raggruppate in **9 passaporti**, ciascuno contenuto in **1 solo foglio**:
+7 passaporti su A4 fronte/retro (piega a croce) e 2 passaporti (Calabria e
+Valle d'Aosta) su A5 landscape fronte/retro (piega unica).
 
 ## Uso
 
@@ -12,9 +12,10 @@ d'Aosta su A5 landscape fronte/retro (piega unica).
 pip install -r requirements.txt
 # richiede xelatex (texlive-xetex) installato nel sistema
 
-python genera_passaporto.py --all          # tutti gli 8 passaporti
+python genera_passaporto.py --all          # tutti i 9 passaporti
 python genera_passaporto.py "Nord Est"     # un gruppo specifico
 python genera_passaporto.py --list         # gruppi disponibili
+python genera_passaporto.py --all --filigrana-mappa  # filigrana timbro con basemap
 python verifica_tappe.py                   # controllo salti numerazione tappe
 ```
 
@@ -23,8 +24,8 @@ immagini), rigenerare sempre tutti i passaporti con `--all`, il raccoglitore
 con `genera_raccoglitore.py` (popola anche le cartelle di export piatte), e
 aggiornare il README di conseguenza.
 
-Per ogni gruppo vengono prodotti tre PDF in `output/<slug>/` (es.
-`output/nord_est/`, `output/valle_d_aosta/`):
+Per ogni gruppo vengono prodotti tre PDF in `output/<N>_<slug>/`, dove `<N>`
+è l'ordine SICAI (es. `output/1_isole/`, `output/9_nord_est/`):
 
 Le mappe di copertina sono in `output/mappe/` (cartella separata).
 
@@ -33,17 +34,23 @@ file in root, senza sottocartelle per gruppo, **senza** PDF A6):
 
 | Cartella | Contenuto |
 |---|---|
-| `output/stampa/` | 8 passaporti + raccoglitore, versione **senza margini** (`*_stampa.pdf`) |
-| `output/stampa_margini/` | 8 passaporti + raccoglitore, versione **con margini** 5 mm (`*_stampa_margini.pdf`) |
+| `output/stampa/` | 9 passaporti + raccoglitore, versione **senza margini** (`*_stampa.pdf`) |
+| `output/stampa_margini/` | 9 passaporti + raccoglitore, versione **con margini** 5 mm (`*_stampa_margini.pdf`) |
 
-I PDF per gruppo in `output/<slug>/` (inclusi gli A6 per verifica a video)
-restano disponibili come prima.
+I PDF per gruppo in `output/<N>_<slug>/` (inclusi gli A6 per verifica a video)
+restano disponibili come prima. I nomi file hanno un **prefisso numerico**
+nell'ordine SICAI (`0` = raccoglitore, `1`–`9` = passaporti come nel foglio
+**Riepilogo per Gruppo**).
 
 | File | Contenuto |
 |---|---|
-| `passaporto_<gruppo>_A6.pdf` | pagine A6 in sequenza logica (per verifica a video) |
-| `passaporto_<gruppo>_A4_stampa.pdf` (o `_A5_stampa.pdf` per Valle d'Aosta) | imposizione fronte/retro **senza margini** (al vivo, per tipografia) |
-| `passaporto_<gruppo>_A4_stampa_margini.pdf` (o `_A5_...`) | stessa imposizione **con margini di stampa** (5 mm, contenuto scalato e centrato — per stampanti non borderless; costante `MARGINE_STAMPA_MM`) |
+| `<N>_passaporto_<gruppo>_A6.pdf` | pagine A6 in sequenza logica (per verifica a video) |
+| `<N>_passaporto_<gruppo>_A4_stampa.pdf` (o `_A5_stampa.pdf` per Calabria/Valle d'Aosta) | imposizione fronte/retro **senza margini** (al vivo, per tipografia) |
+| `<N>_passaporto_<gruppo>_A4_stampa_margini.pdf` (o `_A5_...`) | stessa imposizione **con margini di stampa** (5 mm, contenuto scalato e centrato — per stampanti non borderless; costante `MARGINE_STAMPA_MM`) |
+
+Nelle cartelle piatte `output/stampa/` e `output/stampa_margini/` i PDF
+seguono lo stesso schema (es. `0_raccoglitore_A5_stampa.pdf`,
+`1_passaporto_isole_A4_stampa.pdf`, …).
 
 ## Verifica numerazione tappe
 
@@ -75,8 +82,8 @@ Per ogni salto il report indica:
 Interpretazione tipica dei salti (controllo manuale sul dataset attuale):
 
 - **Cross-regione** — la numerazione CAI è nazionale; le regioni sono
-  raggruppamenti editoriali. Esempio: serie `N` spezzata tra Umbria
-  (Centro Nord) e Marche (Centro Sud).
+  raggruppamenti editoriali. Una stessa serie letterale può attraversare il
+  confine tra due passaporti (es. la serie `Q/R` tra Sud e Centro).
 - **Varianti** — molti “assenti” segnalati dallo script sono in realtà
   coperti da suffissi nel passaporto (es. `E39A`/`E39B` al posto di `E39`,
   `Z10A`/`Z10B` al posto di `Z10`). Con `--solo-assenti` restano solo i
@@ -105,13 +112,16 @@ tappe per **blocco regionale** secondo l'ordine del foglio **Riepilogo per
 Regione** e, dentro ogni regione, preserva il senso di percorrenza del foglio
 Tracciati (evitando riordinamenti alfabetici per ref).
 
-Colonne foglio **Riepilogo per Regione**: `lettera`, `region`, `gruppo`,
-`num_tappe`, `formato` (A4 / A5) — ordine regioni in copertina e percorrenza
-dentro ogni passaporto.
+Colonne foglio **Riepilogo per Regione**: `lettera`, `region`, `Gruppo`
+(codice col prefisso, es. `4-Centro`), `num_tappe`, `formato` (A4 / A5) —
+ordine regioni in copertina e percorrenza dentro ogni passaporto. L'ordine
+delle regioni di un gruppo segue le `lettera` di questo foglio; i nomi regione
+sono poi risolti dal foglio Tracciati.
 
-Colonne foglio **Riepilogo per Gruppo**: `lettera`, `gruppo`, `num_totale`,
-`formato` — ordine dei passaporti, conteggio tappe atteso e formato foglio.
-`get_gruppi()` carica gruppi, regioni e formato da questi fogli.
+Colonne foglio **Riepilogo per Gruppo**: `lettera`, `gruppo` (col prefisso
+numerico, es. `1-Isole`), `num_totale`, `formato` — ordine dei passaporti,
+conteggio tappe atteso e formato foglio. `get_gruppi()` carica gruppi, regioni
+e formato da questi fogli e rimuove il prefisso numerico per il nome display.
 
 ```bash
 python estrai_tappe_passaporto.py   # rigenera tappe_passaporto.xlsx da tappe.xlsx
@@ -134,9 +144,9 @@ pip install cairosvg   # conversione QR SVG → PNG per XeLaTeX
 python genera_raccoglitore.py
 ```
 
-Produce in `output/`: `raccoglitore_A6.pdf`,
-`raccoglitore_A5_stampa.pdf` (al vivo) e
-`raccoglitore_A5_stampa_margini.pdf` (margini 5 mm).
+Produce in `output/`: `0_raccoglitore_A6.pdf`,
+`0_raccoglitore_A5_stampa.pdf` (al vivo) e
+`0_raccoglitore_A5_stampa_margini.pdf` (margini 5 mm).
 
 Le 4 facciate logiche (ordine sequenziale A6, imposte con
 `imponi_su_a5`):
@@ -157,19 +167,25 @@ a build-time (`cairosvg`) perché XeLaTeX non include direttamente gli SVG.
 Ordine passaporti, regioni per gruppo, formato e `num_totale` sono letti da
 `tappe_passaporto.xlsx` (fogli **Riepilogo per Gruppo** e **Riepilogo per Regione**).
 
+Il nome del gruppo nei fogli Excel ha un **prefisso numerico** che fissa
+l'ordine dei passaporti (`1-Isole`, `2-Calabria`, …); `get_gruppi()` lo
+rimuove (`nome_display_gruppo()`) e nei PDF e negli slug compare solo il nome
+(`Isole`, `Calabria`, …).
+
 | # | Gruppo | Regioni (ordine percorrenza) | Formato foglio | Tappe | Pag. timbri | Note |
 |---|---|---|---|---:|---:|---:|
 | 1 | Isole | Sardegna, Sicilia | A4 210×297 mm | 67 | 6 | 1 |
-| 2 | Sud | Calabria, Basilicata, Campania | A4 210×297 mm | 75 | 7 | 0 |
-| 3 | Centro Sud | Puglia, Molise, Abruzzo, Lazio, Marche | A4 210×297 mm | 84 | 7 | 0 |
-| 4 | Centro Nord | Umbria, Toscana/Emilia Romagna, Liguria | A4 210×297 mm | 78 | 7 | 0 |
-| 5 | Piemonte | Piemonte | A4 210×297 mm | 83 | 7 | 0 |
-| 6 | Valle d'Aosta | Valle d'Aosta | **A5 210×148 mm** | 20 | 2 | 1 |
-| 7 | Lombardia | Lombardia | A4 210×297 mm | 60 | 5 | 2 |
-| 8 | Nord Est | Veneto, Trentino-Alto Adige, Friuli Venezia Giulia | A4 210×297 mm | 68 | 6 | 1 |
+| 2 | Calabria | Calabria | **A5 210×148 mm** | 33 | 3 | 0 |
+| 3 | Sud | Basilicata, Campania, Puglia, Molise | A4 210×297 mm | 79 | 7 | 0 |
+| 4 | Centro | Abruzzo, Lazio, Marche/Umbria | A4 210×297 mm | 56 | 5 | 2 |
+| 5 | Centro Nord | Toscana/Emilia Romagna, Liguria | A4 210×297 mm | 69 | 6 | 1 |
+| 6 | Piemonte | Piemonte | A4 210×297 mm | 83 | 7 | 0 |
+| 7 | Valle d'Aosta | Valle d'Aosta | **A5 210×148 mm** | 20 | 2 | 1 |
+| 8 | Lombardia | Lombardia | A4 210×297 mm | 60 | 5 | 2 |
+| 9 | Nord Est | Veneto, Trentino-Alto Adige, Friuli Venezia Giulia | A4 210×297 mm | 68 | 6 | 1 |
 
-Totale: **535 tappe, 8 fogli** (7 A4 + 1 A5). Il **Centro Sud** è al limite
-A4 (**84 tappe** = 7 pagine timbri, nessuna pagina Note di riempimento).
+Totale: **535 tappe, 9 fogli** (7 A4 + 2 A5). Il **Piemonte** è al limite
+A4 (**83 tappe** = 7 pagine timbri).
 
 ## Dimensioni
 
@@ -189,9 +205,12 @@ adattivo (5–8 pt) in base alla lunghezza dei nomi, per riempire il riquadro
 e massimizzare la leggibilità in stampa. Km, D+ e D- stanno **ciascuno su una
 riga propria** con interlinea uniforme (l'unità `m` non si separa mai dal
 valore); i campi senza dato non vengono mostrati. Dietro al testo, **centrata
-nel riquadro**, c'è in **filigrana** la silhouette del **tracciato della tappa**
-(rosso CAI, opacità 12%, generata da `sicai_tappe.geojson`); le poche tappe
-senza geometria nel dataset non hanno filigrana.
+nel riquadro**, c'è in **filigrana** (opacità 20%) la silhouette del **tracciato
+della tappa** (rosso CAI, generata da `sicai_tappe.geojson`); le poche tappe
+senza geometria nel dataset non hanno filigrana. Con il flag
+`--filigrana-mappa` la filigrana include anche la **basemap** sotto il tracciato
+(stessa tappa, stesso riquadro); **senza il flag** (default) resta la sola
+silhouette su sfondo trasparente.
 
 Le pagine interne (timbri, note, presentazione ecc.) hanno un **header da 14 mm**
 con sfondo blu CAI: tutti i testi sono in **bianco grassetto**. Nel **passaporto**
@@ -203,7 +222,7 @@ il titolo di sezione (9/11 pt) e a destra «Sentiero Italia CAI» (7/9 pt); sull
 
 Le pagine **Note** del passaporto (dove presenti) e la pagina **Presentazione**
 del raccoglitore hanno in filigrana il **logo CAI** centrato sul foglio A6
-(48 mm di altezza, opacità 12%), dietro header e contenuto — più grande dei
+(48 mm di altezza, opacità 20%), dietro header e contenuto — più grande dei
 loghi in copertina (16 mm, pieni) e non invasivo per la scrittura a mano.
 
 La **copertina** è organizzata in tre fasce:
@@ -217,9 +236,9 @@ La **copertina** è organizzata in tre fasce:
    bianco grassetto, allineato a destra (49–99 mm). Il blocco **risale** così che
    il suo **fondo si allinei col fondo della mappa** a sinistra (colonna mappa e
    colonna loghi+testo della stessa altezza):
-   1. **nome del passaporto** (es. *Centro Sud*) — node a −54 mm;
+   1. **nome del passaporto** (es. *Centro*) — node a −54 mm;
    2. **elenco delle regioni** del gruppo su **una sola riga** separato da virgola
-      (es. *Marche, Lazio, Abruzzo, Molise, Puglia*) a −59,5 mm; nei passaporti
+      (es. *Abruzzo, Lazio, Marche/Umbria*) a −59,5 mm; nei passaporti
       **monoregione** col nome coincidente col gruppo questa riga è **omessa**;
    3. **recap unico totale** del gruppo — *N tappe · km totali · D+ · D−*. Nei
       **multiregione** è in **riga 3** (−63 mm, fondo ≈ fondo mappa); nei
@@ -288,7 +307,11 @@ generate a build-time da `genera_mappe.py`:
   tracciato della tappa (rosso CAI con alone, **sfondo trasparente**, niente
   basemap), salvate come PNG in `output/mappe/filigrane/<sicai_ref>.png` e
   cachate su disco (rigenerate solo se `sicai_tappe.geojson` cambia); inserite
-  in filigrana (opacità 12%) dietro il testo di ogni casella timbro;
+  in filigrana (opacità 20%) dietro il testo di ogni casella timbro. Con il
+  flag `--filigrana-mappa` viene invece usata la variante con **basemap
+  Webmapp** sotto il tracciato, salvata in `output/mappe/filigrane_mappa/`
+  (PNG opaco; la prima build scarica i tile della singola tappa, poi la cache
+  `.tile_cache/` accelera le esecuzioni successive);
 - **attribuzione cartografica**: sotto ogni mappa (passaporto e raccoglitore)
   compare il credito fisso `© CAI © OpenStreetMap` (costante `MAPPA_CREDIT`
   in `genera_passaporto.py`), distinto dai crediti foto CC BY per regione
@@ -307,7 +330,7 @@ python genera_mappe.py
 Le fotografie in basso sulla copertina sono preparate a build-time da
 `genera_copertine.py` (Pillow). Per ogni passaporto serve una cartella in
 `assets/copertine/<slug>/`, dove `<slug>` coincide con quello del gruppo
-(es. `nord_est`, `valle_d_aosta`, `centro_sud`):
+(es. `nord_est`, `valle_d_aosta`, `centro`):
 
 | File | Descrizione |
 |---|---|
