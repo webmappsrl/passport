@@ -8,3 +8,4 @@ matplotlib
 shapely
 requests
 pillow
+pytest

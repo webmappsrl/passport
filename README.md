@@ -4,7 +4,10 @@ Generatore di passaporti stampabili: pagine A6 (105×148 mm) compilate con
 XeLaTeX e imposte a valle con pypdf. Le 19 regioni del Sentiero Italia sono
 raggruppate in **9 passaporti**, ciascuno contenuto in **1 solo foglio**:
 7 passaporti su A4 fronte/retro (piega a croce) e 2 passaporti (Calabria e
-Valle d'Aosta) su A5 landscape fronte/retro (piega unica).
+Valle d'Aosta) su A5 landscape fronte/retro (piega unica). Con `--all` viene
+prodotto in più il **libretto unico A6**: tutti i 9 passaporti in un solo PDF,
+una facciata A6 per pagina, da stampare e spillare al centro (vedi
+[Libretto unico A6](#libretto-unico-a6)).
 
 ## Uso
 
@@ -12,11 +15,12 @@ Valle d'Aosta) su A5 landscape fronte/retro (piega unica).
 pip install -r requirements.txt
 # richiede xelatex (texlive-xetex) installato nel sistema
 
-python genera_passaporto.py --all          # tutti i 9 passaporti
+python genera_passaporto.py --all          # tutti i 9 passaporti + libretto unico A6
 python genera_passaporto.py "Nord Est"     # un gruppo specifico
 python genera_passaporto.py --list         # gruppi disponibili
 python genera_passaporto.py --all --filigrana-mappa  # filigrana timbro con basemap
 python verifica_tappe.py                   # controllo salti numerazione tappe
+python -m pytest                           # test della sequenza pagine del libretto
 ```
 
 Dopo ogni modifica alla copertina (template, layout, crediti foto o mappe,
@@ -34,8 +38,8 @@ file in root, senza sottocartelle per gruppo, **senza** PDF A6):
 
 | Cartella | Contenuto |
 |---|---|
-| `output/stampa/` | 9 passaporti + raccoglitore, versione **senza margini** (`*_stampa.pdf`) |
-| `output/stampa_margini/` | 9 passaporti + raccoglitore, versione **con margini** 5 mm (`*_stampa_margini.pdf`) |
+| `output/stampa/` | 9 passaporti + raccoglitore, versione **senza margini** (`*_stampa.pdf`), + `libretto_A6.pdf` |
+| `output/stampa_margini/` | 9 passaporti + raccoglitore, versione **con margini** 5 mm (`*_stampa_margini.pdf`), + `libretto_A6_margini.pdf` |
 
 I PDF per gruppo in `output/<N>_<slug>/` (inclusi gli A6 per verifica a video)
 restano disponibili come prima. I nomi file hanno un **prefisso numerico**
@@ -51,6 +55,41 @@ nell'ordine SICAI (`0` = raccoglitore, `1`–`9` = passaporti come nel foglio
 Nelle cartelle piatte `output/stampa/` e `output/stampa_margini/` i PDF
 seguono lo stesso schema (es. `0_raccoglitore_A5_stampa.pdf`,
 `1_passaporto_isole_A4_stampa.pdf`, …).
+
+## Libretto unico A6
+
+`python genera_passaporto.py --all`, dopo i 9 passaporti, compone un **unico
+libretto A6** da spillare al centro, unendo con pypdf gli A6 dei gruppi (senza
+ricompilare LaTeX):
+
+| File | Contenuto |
+|---|---|
+| `output/libretto_A6.pdf` | facciate A6 105×148 mm in sequenza, **al vivo**, non imposte su A4 (copiato in `output/stampa/`) |
+| `output/libretto_A6_margini.pdf` | stesse facciate ridotte e centrate con **5 mm** di bianco per lato, per stampanti non borderless (copiato in `output/stampa_margini/`) |
+
+Composizione, nell'ordine del foglio **Riepilogo per Gruppo**:
+
+- ogni gruppo porta la sua **copertina** (che nel libretto fa da separatore) e
+  le sue **pagine timbri**;
+- un gruppo con un numero **dispari** di pagine riceve in coda una pagina
+  **Note**, così ogni copertina cade su una pagina dispari (a destra);
+- l'**ultima pagina** è sempre una pagina Note, e il totale è un **multiplo di 4**
+  (se serve si aggiungono pagine Note in fondo).
+
+Con i dati attuali il libretto ha **60 facciate**, come l'esempio di Enrico
+(ottobre 2026): Isole 1-8, Calabria 9-12, Sud 13-20, Centro 21-26, Centro Nord
+27-34, Piemonte 35-42, Valle d'Aosta 43-46, Lombardia 47-52, Nord Est 53-60;
+pagine Note a pagina 8, 34, 46 e 60. La mappa «gruppo → pagine» è stampata a
+fine generazione.
+
+Prima di pubblicarlo lo script **rilegge il PDF scritto** e si ferma con errore
+se le pagine non sono un multiplo di 4, se una copertina cade su una pagina
+pari, se l'ultima pagina non è una Note o se la struttura non è quella attesa.
+
+Il libretto esiste solo se allineato ai passaporti: ogni generazione **lo
+cancella all'inizio** (con le copie di stampa) e solo `--all`, a fine run
+riuscita, lo riscrive. Rigenerando un singolo gruppo lo script avvisa
+«libretto rimosso perché non più allineato: rigeneralo con --all».
 
 ## Verifica numerazione tappe
 
@@ -215,8 +254,9 @@ silhouette su sfondo trasparente.
 Le pagine interne (timbri, note, presentazione ecc.) hanno un **header da 14 mm**
 con sfondo blu CAI: tutti i testi sono in **bianco grassetto**. Nel **passaporto**
 compare a sinistra il nome del gruppo (9/11 pt), al centro «Sentiero Italia CAI»
-(7/9 pt) e a destra «Tappe …» o «Note» (8/10 pt) con sotto **«Pag. N di TOT»**
-(6/7,5 pt; la copertina non è numerata — pag. 1 = prima pagina timbri). Nel **raccoglitore** a sinistra
+(7/9 pt) e a destra «Tappe …» o «Note» (8/10 pt). Le pagine **non sono
+numerate** (le tappe si seguono regione per regione) e le pagine **Note** non
+riportano il nome del gruppo (sono identiche in tutti i passaporti). Nel **raccoglitore** a sinistra
 il titolo di sezione (9/11 pt) e a destra «Sentiero Italia CAI» (7/9 pt); sulla **copertina** l'etichetta
 «N. identificativo passaporto» sopra il box bianco è in bianco grassetto **7/8,5 pt**.
 
@@ -269,6 +309,7 @@ progetto/
 ├── genera_mappe.py                  # mappe basemap Webmapp + overlay SICAI
 ├── genera_copertine.py              # ritaglio foto copertina + lettura credits
 ├── verifica_tappe.py                # controllo salti numerazione per passaporto/regione
+├── tests/test_libretto.py           # sequenza pagine del libretto unico A6 (pytest)
 ├── estrai_tappe_passaporto.py       # tappe.xlsx → tappe_passaporto.xlsx
 ├── tappe.xlsx                       # export completo DB (sviluppo; in prod: PostgreSQL)
 ├── tappe_passaporto.xlsx            # fonte dati passaporto (rigenerare dopo tappe.xlsx)

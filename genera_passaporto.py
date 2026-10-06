@@ -9,9 +9,10 @@ Pipeline (design e imposizione separati, come da architettura del progetto):
   3. XeLaTeX → passaporto A6 (PDF leggibile/verificabile)
   4. pypdf  → imposizione 2x2 su A4 fronte/retro con schema
               duplex corretto (cut & stack) + crocini di taglio
+  5. pypdf  → libretto unico A6 con tutti i gruppi (solo con --all)
 
 Uso:
-  python genera_passaporto.py --all           # tutti gli 8 passaporti
+  python genera_passaporto.py --all           # tutti i 9 passaporti + libretto A6
   python genera_passaporto.py "Nord Est"      # un gruppo specifico
   python genera_passaporto.py --list          # elenco gruppi disponibili
 """
@@ -65,7 +66,7 @@ MARGINE_STAMPA_MM = 5      # margine per la versione "con margini di stampa"
 MAPPA_CREDIT = "© CAI © OpenStreetMap"
 
 # ----------------------------------------------------------------------
-# Raggruppamenti: 8 passaporti, 1 foglio ciascuno (caricati da Excel).
+# Raggruppamenti: 9 passaporti, 1 foglio ciascuno (caricati da Excel).
 # Capacità per foglio: A4 = copertina + 7 pagine timbri (84 tappe max);
 # A5 (solo Val d'Aosta) = copertina + 3 facciate (36 tappe max).
 # ----------------------------------------------------------------------
@@ -366,7 +367,6 @@ def costruisci_contesto(gruppo_nome: str, regioni: list[str], tappe: list[dict])
         "totale_tappe": len(tappe),
         "pagine_note": pagine_note,
         "pagine_totali": pagine_totali,
-        "pagine_numerate": pagine_totali - 1,
         "placeholder_top_mm": placeholder_top_mm,
         "placeholder_image_bottom_mm": placeholder_image_bottom_mm,
         "placeholder_image_height_mm": image_height_mm,
@@ -636,6 +636,160 @@ def imponi_su_a5(a6_pdf: Path, output_pdf: Path, crocini: bool = True,
 
 
 # ----------------------------------------------------------------------
+# 5. Libretto unico A6 — tutti i gruppi in un solo PDF spillato al centro
+# ----------------------------------------------------------------------
+#
+# Il libretto si compone dagli A6 dei 9 gruppi, senza ricompilare LaTeX.
+# Ogni gruppo porta copertina + pagine timbri; se le sue pagine sono
+# dispari riceve una pagina Note, così la copertina successiva cade
+# sempre su una pagina dispari (a destra). L'ultima pagina è sempre una
+# Note e il totale è un multiplo di 4 (spillatura al centro).
+# Con l'Excel di ottobre 2026 il risultato coincide con l'esempio di
+# Enrico: 60 facciate, Note a pagina 8, 34, 46 e 60.
+
+LIBRETTO_A6 = OUTPUT_DIR / "libretto_A6.pdf"
+LIBRETTO_A6_MARGINI = OUTPUT_DIR / "libretto_A6_margini.pdf"
+
+
+def piano_libretto(gruppi: list[tuple[str, int, int]]) -> list[tuple[int, int, str]]:
+    """Sequenza delle pagine del libretto.
+
+    gruppi: per ogni gruppo, in ordine, (nome, pagine_timbri, pagine_note
+    presenti nel suo A6). Restituisce una voce per pagina del libretto:
+    (indice_gruppo, indice_pagina_nell_A6, tipo), tipo in
+    {"copertina", "timbri", "note"}.
+    """
+    piano: list[tuple[int, int, str]] = []
+    for g, (_, n_timbri, _) in enumerate(gruppi):
+        piano.append((g, 0, "copertina"))
+        piano.extend((g, 1 + i, "timbri") for i in range(n_timbri))
+        if (1 + n_timbri) % 2:
+            # pagine dispari → l'A6 del gruppo ha almeno una Note di riempimento
+            piano.append((g, 1 + n_timbri, "note"))
+
+    # le Note aggiunte in fondo sono tutte uguali: si copia la prima disponibile
+    sorgente_note = next(
+        ((g, 1 + n_timbri) for g, (_, n_timbri, n_note) in enumerate(gruppi) if n_note),
+        None,
+    )
+    while piano[-1][2] != "note" or len(piano) % 4:
+        if sorgente_note is None:
+            raise ValueError(
+                "Nessun gruppo ha una pagina Note nel suo A6: impossibile "
+                "aggiungere le pagine Note in fondo al libretto."
+            )
+        piano.append((*sorgente_note, "note"))
+    return piano
+
+
+def componi_libretto(infos: list[dict], output_pdf: Path) -> list[tuple[str, int, int]]:
+    """Scrive il libretto A6 dagli A6 dei gruppi (dict info di genera_passaporto).
+
+    Restituisce la mappa (gruppo, prima_pagina, ultima_pagina), 1-based.
+    """
+    piano = piano_libretto(
+        [(i["gruppo"], i["pagine_timbri"], i["pagine_note"]) for i in infos]
+    )
+    readers = [PdfReader(str(i["pdf_a6"])) for i in infos]
+    writer = PdfWriter()
+    for g, pagina, _ in piano:
+        writer.add_page(readers[g].pages[pagina])
+    with open(output_pdf, "wb") as f:
+        writer.write(f)
+
+    # ogni gruppo va dalla sua copertina alla pagina prima della copertina
+    # successiva; l'ultimo arriva in fondo (Note finali comprese)
+    copertine = [n + 1 for n, (_, _, tipo) in enumerate(piano) if tipo == "copertina"]
+    fine = [c - 1 for c in copertine[1:]] + [len(piano)]
+    return [(i["gruppo"], da, a) for i, da, a in zip(infos, copertine, fine)]
+
+
+def riduci_con_margini(a6_pdf: Path, output_pdf: Path, margine_mm: float) -> None:
+    """Ogni pagina A6 ridotta e centrata su un A6 bianco con margine_mm per lato."""
+    reader = PdfReader(str(a6_pdf))
+    writer = PdfWriter()
+    m = margine_mm * MM
+    scala = min((A6_W - 2 * m) / A6_W, (A6_H - 2 * m) / A6_H)
+    off_x = (A6_W - A6_W * scala) / 2
+    off_y = (A6_H - A6_H * scala) / 2
+    riduzione = Transformation().scale(scala).translate(tx=off_x, ty=off_y)
+    for pagina in reader.pages:
+        dest = writer.add_blank_page(width=A6_W, height=A6_H)
+        dest.merge_transformed_page(pagina, riduzione)
+    with open(output_pdf, "wb") as f:
+        writer.write(f)
+
+
+def _tipo_pagina(testo: str) -> str:
+    if "PASSAPORTO" in testo:
+        return "copertina"
+    if "Tappe " in testo:
+        return "timbri"
+    if "Note" in testo:
+        return "note"
+    return "sconosciuta"
+
+
+def verifica_libretto(pdf: Path, attesi: list[str]) -> None:
+    """Rilegge il libretto scritto e ne controlla la struttura dal testo delle pagine.
+
+    Legge il PDF dal disco, non il piano usato per scriverlo: è un controllo
+    sul file prodotto, non una ripetizione del calcolo.
+    """
+    tipi = [_tipo_pagina(p.extract_text() or "") for p in PdfReader(str(pdf)).pages]
+    errori = []
+    if len(tipi) % 4:
+        errori.append(f"{len(tipi)} pagine, non multiplo di 4")
+    pari = [n + 1 for n, t in enumerate(tipi) if t == "copertina" and (n + 1) % 2 == 0]
+    if pari:
+        errori.append(f"copertine su pagina pari (a sinistra): {pari}")
+    if not tipi or tipi[-1] != "note":
+        errori.append("l'ultima pagina non è una pagina Note")
+    if tipi != attesi:
+        diverse = [n + 1 for n, (a, b) in enumerate(zip(tipi, attesi)) if a != b]
+        errori.append(
+            f"struttura diversa dal piano ({len(tipi)} pagine lette, "
+            f"{len(attesi)} attese; pagine diverse: {diverse})"
+        )
+    if errori:
+        raise SystemExit(f"Libretto {pdf.name} non valido:\n  - " + "\n  - ".join(errori))
+
+
+def rimuovi_libretto(output_dir: Path = OUTPUT_DIR) -> bool:
+    """Cancella i PDF del libretto e le loro copie di stampa. True se ne c'erano."""
+    nomi = (LIBRETTO_A6.name, LIBRETTO_A6_MARGINI.name)
+    candidati = [output_dir / n for n in nomi]
+    candidati += [output_dir / cartella / n
+                  for cartella in ("stampa", "stampa_margini") for n in nomi]
+    rimossi = False
+    for pdf in candidati:
+        if pdf.exists():
+            pdf.unlink()
+            rimossi = True
+    return rimossi
+
+
+def genera_libretto(infos: list[dict], output_dir: Path = OUTPUT_DIR) -> None:
+    """Libretto al vivo + versione con margini, verificato e pubblicato per la stampa."""
+    out = output_dir / LIBRETTO_A6.name
+    out_margini = output_dir / LIBRETTO_A6_MARGINI.name
+    mappa = componi_libretto(infos, out)
+    attesi = [tipo for _, _, tipo in piano_libretto(
+        [(i["gruppo"], i["pagine_timbri"], i["pagine_note"]) for i in infos]
+    )]
+    verifica_libretto(out, attesi)
+    riduci_con_margini(out, out_margini, MARGINE_STAMPA_MM)
+    pubblica_pdf_stampa(out, output_dir / "stampa")
+    pubblica_pdf_stampa(out_margini, output_dir / "stampa_margini")
+    print(
+        f"✔ Libretto unico A6: {len(attesi)} facciate\n  "
+        + ", ".join(f"{g} {da}-{a}" for g, da, a in mappa)
+        + f"\n  → {out.name} (al vivo)\n  → {out_margini.name} "
+        f"(margini {MARGINE_STAMPA_MM} mm)\n"
+    )
+
+
+# ----------------------------------------------------------------------
 # Entry point
 # ----------------------------------------------------------------------
 
@@ -769,7 +923,7 @@ def main():
     parser.add_argument("gruppi", nargs="*",
                         help="Uno o più gruppi (es. \"Nord Est\", Piemonte)")
     parser.add_argument("--all", action="store_true",
-                        help="Genera tutti gli 8 passaporti")
+                        help="Genera tutti i 9 passaporti e il libretto unico A6")
     parser.add_argument("--list", action="store_true",
                         help="Elenca i gruppi disponibili")
     parser.add_argument("--filigrana-mappa", action="store_true",
@@ -790,10 +944,20 @@ def main():
 
     gruppi = get_gruppi()
     da_generare = list(gruppi) if args.all else args.gruppi
+    # il libretto vecchio non deve sopravvivere a una rigenerazione: con --all
+    # viene riscritto solo se tutti i gruppi vanno a buon fine, altrimenti resta
+    # assente finché non si rilancia --all
+    libretto_rimosso = rimuovi_libretto(OUTPUT_DIR)
     if args.all:
         reset_cartelle_stampa(OUTPUT_DIR)
-    for gruppo in da_generare:
+    infos = [
         genera_passaporto(gruppo, filigrana_mappa=args.filigrana_mappa)
+        for gruppo in da_generare
+    ]
+    if args.all:
+        genera_libretto(infos, OUTPUT_DIR)
+    elif libretto_rimosso:
+        print("⚠ libretto rimosso perché non più allineato: rigeneralo con --all")
 
 
 if __name__ == "__main__":
