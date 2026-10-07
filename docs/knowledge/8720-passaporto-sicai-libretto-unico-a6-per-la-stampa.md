@@ -20,6 +20,8 @@ versione di giugno 2026.
   resterebbe con i dati vecchi e potrebbe finire in copisteria.
 - **Controllo sul PDF scritto** (oc:8720): la verifica rilegge il file e classifica le pagine dal
   testo, così non ripete il calcolo che l'ha prodotto.
+- **Il raccoglitore è la copertina** (oc:8720, ipotesi di lavoro da confermare): avvolge le 60
+  facciate interne, 64 in tutto; per questo `--all` lo rigenera insieme al libretto.
 - **Niente numero di pagina** (oc:8720): richiesto da Eleonora Berti nella call del 2026-10-06,
   perché le tappe si seguono regione per regione.
 

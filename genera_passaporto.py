@@ -12,7 +12,7 @@ Pipeline (design e imposizione separati, come da architettura del progetto):
   5. pypdf  → libretto unico A6 con tutti i gruppi (solo con --all)
 
 Uso:
-  python genera_passaporto.py --all           # tutti i 9 passaporti + libretto A6
+  python genera_passaporto.py --all           # 9 passaporti + libretto A6 + raccoglitore
   python genera_passaporto.py "Nord Est"      # un gruppo specifico
   python genera_passaporto.py --list          # elenco gruppi disponibili
 """
@@ -923,7 +923,7 @@ def main():
     parser.add_argument("gruppi", nargs="*",
                         help="Uno o più gruppi (es. \"Nord Est\", Piemonte)")
     parser.add_argument("--all", action="store_true",
-                        help="Genera tutti i 9 passaporti e il libretto unico A6")
+                        help="Genera i 9 passaporti, il libretto unico A6 e il raccoglitore (copertina)")
     parser.add_argument("--list", action="store_true",
                         help="Elenca i gruppi disponibili")
     parser.add_argument("--filigrana-mappa", action="store_true",
@@ -956,6 +956,11 @@ def main():
     ]
     if args.all:
         genera_libretto(infos, OUTPUT_DIR)
+        # il raccoglitore è la copertina del libretto: reset_cartelle_stampa ha
+        # svuotato anche i suoi PDF di stampa, quindi va rigenerato insieme.
+        # Import locale: genera_raccoglitore importa da questo modulo.
+        from genera_raccoglitore import genera_raccoglitore
+        genera_raccoglitore(OUTPUT_DIR)
     elif libretto_rimosso:
         print("⚠ libretto rimosso perché non più allineato: rigeneralo con --all")
 

@@ -15,7 +15,7 @@ una facciata A6 per pagina, da stampare e spillare al centro (vedi
 pip install -r requirements.txt
 # richiede xelatex (texlive-xetex) installato nel sistema
 
-python genera_passaporto.py --all          # tutti i 9 passaporti + libretto unico A6
+python genera_passaporto.py --all          # 9 passaporti + libretto unico A6 + raccoglitore
 python genera_passaporto.py "Nord Est"     # un gruppo specifico
 python genera_passaporto.py --list         # gruppi disponibili
 python genera_passaporto.py --all --filigrana-mappa  # filigrana timbro con basemap
@@ -24,9 +24,9 @@ python -m pytest                           # test della sequenza pagine del libr
 ```
 
 Dopo ogni modifica alla copertina (template, layout, crediti foto o mappe,
-immagini), rigenerare sempre tutti i passaporti con `--all`, il raccoglitore
-con `genera_raccoglitore.py` (popola anche le cartelle di export piatte), e
-aggiornare il README di conseguenza.
+immagini), rigenerare sempre tutto con `--all` (passaporti, libretto e
+raccoglitore, che popola anche le cartelle di export piatte), e aggiornare il
+README di conseguenza. `genera_raccoglitore.py` rigenera il solo raccoglitore.
 
 Per ogni gruppo vengono prodotti tre PDF in `output/<N>_<slug>/`, dove `<N>`
 è l'ordine SICAI (es. `output/1_isole/`, `output/9_nord_est/`):
@@ -85,6 +85,14 @@ fine generazione.
 Prima di pubblicarlo lo script **rilegge il PDF scritto** e si ferma con errore
 se le pagine non sono un multiplo di 4, se una copertina cade su una pagina
 pari, se l'ultima pagina non è una Note o se la struttura non è quella attesa.
+
+**Copertina.** La «copertina rigida» del libretto è il [raccoglitore](#raccoglitore-del-camminatore)
+(ipotesi di lavoro, ottobre 2026, da confermare con il committente): il foglio A5
+piegato avvolge le 60 facciate interne e viene spillato con loro, per **64 facciate
+in tutto** (4 di copertina + 60 interne). Alla copisteria vanno quindi due file:
+l'interno (`libretto_A6.pdf`) e la copertina (`0_raccoglitore_A6.pdf`, facciate A6
+in sequenza: 1 fronte, 2 interno fronte, 3 interno retro, 4 retro). Per questo
+`--all` rigenera anche il raccoglitore.
 
 Il libretto esiste solo se allineato ai passaporti: ogni generazione **lo
 cancella all'inizio** (con le copie di stampa) e solo `--all`, a fine run
@@ -172,15 +180,16 @@ tre fogli restino coerenti (in particolare `num_totale` nel Riepilogo per Gruppo
 
 ## Raccoglitore del Camminatore
 
-Oltre ai passaporti è disponibile un **raccoglitore** che ogni
-camminatore conserva insieme ai singoli passaporti: un foglio
+Oltre ai passaporti è disponibile un **raccoglitore**, che fa da
+**copertina del libretto unico A6** (vedi [Libretto unico A6](#libretto-unico-a6))
+e che con i pieghevoli il camminatore conserva insieme ai singoli passaporti: un foglio
 **A5 landscape (210×148 mm) fronte/retro** che, piegato in due lungo la
 piega verticale centrale, diventa un libretto **A6** a 4 facciate
 (stesso meccanismo del passaporto Valle d'Aosta).
 
 ```bash
 pip install cairosvg   # conversione QR SVG → PNG per XeLaTeX
-python genera_raccoglitore.py
+python genera_raccoglitore.py   # solo il raccoglitore (--all lo genera già)
 ```
 
 Produce in `output/`: `0_raccoglitore_A6.pdf`,

@@ -74,8 +74,8 @@ trascrizione della call.
 
 - Split del libretto in un PDF per facciata: da fare solo se la copisteria lo chiede (la call
   accetta anche «un unico file»). Domanda da girare a Eleonora con l'invio del libretto.
-- Raccoglitore come «copertina rigida» del libretto (porterebbe il totale a 64 facciate): non è
-  nell'esempio di Enrico e la call non lo nomina. Domanda da girare a Eleonora o Enrico.
+- ~~Raccoglitore come «copertina rigida» del libretto~~: riportato nello scope il 2026-10-07 come
+  ipotesi di lavoro (vedi notes.md, «Decisioni»).
 - Versione del libretto con abbondanza o crocini di taglio: l'esempio di Enrico è al vivo, e la
   versione con margini copre la stampa senza bordo. Quale delle due usare è una domanda da girare
   alla copisteria.

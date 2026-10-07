@@ -30,14 +30,20 @@ fila composizione, controllo, versione con margini, pubblicazione e stampa della
 - Esito del confronto una tantum con `Pagine_A6.pdf`: 60 pagine su 60 uguali per tipo di pagina,
   statistiche di copertina e intervallo di tappe (ignorate le scritte «Pag.» dell'esempio).
 - Tag Orchestrator: il dev ha chiesto di non proporne né associarne.
+- 2026-10-07, dopo il commit del libretto: il dev ha deciso di dare per buono, per ora, che la
+  «copertina rigida» sia il raccoglitore. Il libretto resta di 60 facciate interne; la copertina è
+  `0_raccoglitore_A6.pdf` (4 facciate), 64 in tutto. `--all` ora rigenera anche il raccoglitore,
+  perché `reset_cartelle_stampa` ne svuotava i PDF in `output/stampa/` e la consegna alla
+  copisteria sarebbe rimasta senza copertina.
+- 2026-10-07, su `prova/allineamento-brandbook`: colori allineati alla palette del brandbook SICAI
+  (blu istituzionale in CMYK 100 72 0 19, azzurro `#B2D7F3`, rosso SICAI nelle mappe). Le altre
+  differenze dal brandbook (dimensione e lockup dei loghi, tipografia, abbondanza) sono state
+  provate e scartate dal dev.
 
 ## Follow-up
 
 Domande da girare a Eleonora Berti / Enrico insieme al libretto:
 - la copisteria vuole un PDF per facciata invece del file unico?
-- la «copertina rigida» è il raccoglitore? In quel caso il totale diventa 64 facciate;
+- confermare che la «copertina rigida» è il raccoglitore (ipotesi di lavoro, 64 facciate in tutto);
 - la copisteria stampa la versione al vivo o quella con margini?
 
-Fuori da questo ticket: `reset_cartelle_stampa` con `--all` svuota anche i PDF del raccoglitore
-in `output/stampa/`, che vanno rigenerati con `genera_raccoglitore.py` (comportamento preesistente,
-già indicato nel README).
