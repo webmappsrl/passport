@@ -59,9 +59,9 @@ R_MERC = 6378137.0             # raggio sferico Web Mercator (EPSG:3857)
 LAT_MAX = 85.05112878
 
 # ---- Stile (palette CAI, coerente con i template) ----
-COL_TRACCIATO = "#C8102E"      # rosso CAI
+COL_TRACCIATO = "#ED1C24"      # rosso SICAI (brandbook)
 COL_ALONE = "#FFFFFF"          # alone bianco sotto il tracciato
-COL_CONFINE_FOCUS = "#1B3569"  # caiblu: confine regione/i del passaporto
+COL_CONFINE_FOCUS = "#014288"  # caiblu: confine regione/i del passaporto
 COL_CONFINE_ALTRI = "#666666"  # confini delle altre regioni
 COL_VELATURA = "#FFFFFF"       # velatura fuori dalla zona di interesse
 
