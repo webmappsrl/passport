@@ -1,13 +1,17 @@
 %% ============================================================
 %% Raccoglitore del Camminatore — Sentiero Italia CAI
-%% Documento A6 sequenziale (105 x 148 mm), 4 facciate logiche.
+%% Documento A6 sequenziale (105 x 148 mm + abbondanze), 4 facciate logiche.
 %% L'imposizione 2x1 su A5 landscape fronte/retro è gestita a
 %% valle dallo script Python (pypdf) — come il passaporto
 %% Valle d'Aosta. Ordine pagine:
 %%   1 copertina · 2 presentazione · 3 cos'è il SICAI · 4 mappa
 %% ============================================================
 \documentclass[10pt]{article}
-\usepackage[paperwidth=105mm, paperheight=148mm, margin=0pt]{geometry}
+% pagina A6 + abbondanza su ogni lato: lo sfondo esce dal formato rifilato,
+% testi e cornici restano ad almeno 4 mm dal taglio. TrimBox/BleedBox sono
+% impostati a valle dallo script Python.
+\newlength{\abb}\setlength{\abb}{((( abbondanza_mm )))mm}
+\usepackage[paperwidth=\dimexpr105mm+2\abb\relax, paperheight=\dimexpr148mm+2\abb\relax, margin=0pt]{geometry}
 \usepackage{fontspec}
 \usepackage{xcolor}
 \usepackage{graphicx}
@@ -51,7 +55,7 @@
 % ---- Header pagine interne ----
 % #1 = titolo sezione (es. "Presentazione")
 \newcommand{\pageheader}[1]{%
-  \fill[caiblu] (0,0) rectangle (105mm,-14mm);
+  \fill[caiblu] (-\abb,\abb) rectangle (105mm+\abb,-14mm);
   \node[anchor=west, text=bianco, inner sep=0pt]
     at (5mm,-7mm) {\fontsize{9}{11}\selectfont\bfseries #1};
   \node[anchor=east, text=bianco, inner sep=0pt]
@@ -61,9 +65,9 @@
 \begin{document}
 
 %% ── PAGINA 1: COPERTINA (esterno, fronte destra) ────────────
-\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}, xshift=\abb, yshift=-\abb]
   % sfondo pieno
-  \fill[caiblu] (0,0) rectangle (105mm,-148mm);
+  \fill[caiblu] (-\abb,\abb) rectangle (105mm+\abb,-148mm-\abb);
 
   % loghi affiancati, blocco allineato a destra (bordo dx a 99mm), top 14mm
   % sinistra: CAI — destra: SICAI
@@ -97,7 +101,7 @@
 
 %% ── PAGINA 2: PRESENTAZIONE (interno sinistra) ──────────────
 \newpage
-\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}, xshift=\abb, yshift=-\abb]
   % filigrana logo CAI (centrata su A6, dietro header e campi)
   \node[anchor=center, inner sep=0pt, opacity=0.2] at (52.5mm,-74mm)
     {\includegraphics[height=48mm]{((( asset_path )))logo_cai.png}};
@@ -131,11 +135,11 @@
 
 %% ── PAGINA 3: COS'È IL SICAI (interno destra) ───────────────
 \newpage
-\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}, xshift=\abb, yshift=-\abb]
   \pageheader{Cos'è il SICAI}
 
   % sfondo blu sotto l'header
-  \fill[caiblu] (0,-14mm) rectangle (105mm,-148mm);
+  \fill[caiblu] (-\abb,-14mm) rectangle (105mm+\abb,-148mm-\abb);
 
   % testo descrittivo (2 paragrafi), centrato nella fascia header–badge.
   % Paragrafi separati con \par (non \\: pgf rielabora ogni riga e
@@ -161,9 +165,9 @@
 
 %% ── PAGINA 4: MAPPA DEL SICAI (esterno, retro copertina) ────
 \newpage
-\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}, xshift=\abb, yshift=-\abb]
   % sfondo pieno come la copertina (facciata esterna)
-  \fill[caiblu] (0,0) rectangle (105mm,-148mm);
+  \fill[caiblu] (-\abb,\abb) rectangle (105mm+\abb,-148mm-\abb);
 
   % titolo
   \node[anchor=north, align=center, text=bianco, inner sep=0pt]

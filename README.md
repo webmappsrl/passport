@@ -20,7 +20,7 @@ python genera_passaporto.py "Nord Est"     # un gruppo specifico
 python genera_passaporto.py --list         # gruppi disponibili
 python genera_passaporto.py --all --filigrana-mappa  # filigrana timbro con basemap
 python verifica_tappe.py                   # controllo salti numerazione tappe
-python -m pytest                           # test della sequenza pagine del libretto
+python -m pytest                           # test sequenza libretto e box di stampa
 ```
 
 Dopo ogni modifica alla copertina (template, layout, crediti foto o mappe,
@@ -38,8 +38,8 @@ file in root, senza sottocartelle per gruppo, **senza** PDF A6):
 
 | Cartella | Contenuto |
 |---|---|
-| `output/stampa/` | 9 passaporti + raccoglitore, versione **senza margini** (`*_stampa.pdf`), + `libretto_A6.pdf` |
-| `output/stampa_margini/` | 9 passaporti + raccoglitore, versione **con margini** 5 mm (`*_stampa_margini.pdf`), + `libretto_A6_margini.pdf` |
+| `output/stampa/` | 9 passaporti + raccoglitore, versione **al vivo** (`*_stampa.pdf`), + `libretto_A6.pdf` |
+| `output/stampa_margini/` | 9 passaporti + raccoglitore, versione **per la tipografia** con abbondanze e segni di taglio (`*_stampa_margini.pdf`), + `libretto_A6_margini.pdf` — **sono questi i file da mandare alla copisteria** |
 
 I PDF per gruppo in `output/<N>_<slug>/` (inclusi gli A6 per verifica a video)
 restano disponibili come prima. I nomi file hanno un **prefisso numerico**
@@ -49,8 +49,8 @@ nell'ordine SICAI (`0` = raccoglitore, `1`–`9` = passaporti come nel foglio
 | File | Contenuto |
 |---|---|
 | `<N>_passaporto_<gruppo>_A6.pdf` | pagine A6 in sequenza logica (per verifica a video) |
-| `<N>_passaporto_<gruppo>_A4_stampa.pdf` (o `_A5_stampa.pdf` per Calabria/Valle d'Aosta) | imposizione fronte/retro **senza margini** (al vivo, per tipografia) |
-| `<N>_passaporto_<gruppo>_A4_stampa_margini.pdf` (o `_A5_...`) | stessa imposizione **con margini di stampa** (5 mm, contenuto scalato e centrato — per stampanti non borderless; costante `MARGINE_STAMPA_MM`) |
+| `<N>_passaporto_<gruppo>_A4_stampa.pdf` (o `_A5_stampa.pdf` per Calabria/Valle d'Aosta) | imposizione fronte/retro **al vivo** (formato rifilato, per stampanti da ufficio) |
+| `<N>_passaporto_<gruppo>_A4_stampa_margini.pdf` (o `_A5_...`) | stessa imposizione **per la tipografia**: abbondanze e segni di taglio e di piega (vedi [Stampa in tipografia](#stampa-in-tipografia)) |
 
 Nelle cartelle piatte `output/stampa/` e `output/stampa_margini/` i PDF
 seguono lo stesso schema (es. `0_raccoglitore_A5_stampa.pdf`,
@@ -65,7 +65,7 @@ ricompilare LaTeX):
 | File | Contenuto |
 |---|---|
 | `output/libretto_A6.pdf` | facciate A6 105×148 mm in sequenza, **al vivo**, non imposte su A4 (copiato in `output/stampa/`) |
-| `output/libretto_A6_margini.pdf` | stesse facciate ridotte e centrate con **5 mm** di bianco per lato, per stampanti non borderless (copiato in `output/stampa_margini/`) |
+| `output/libretto_A6_margini.pdf` | stesse facciate **per la tipografia**: ognuna con 3 mm di abbondanza e segni di taglio (copiato in `output/stampa_margini/`) |
 
 Composizione, nell'ordine del foglio **Riepilogo per Gruppo**:
 
@@ -89,15 +89,39 @@ pari, se l'ultima pagina non è una Note o se la struttura non è quella attesa.
 **Copertina.** La «copertina rigida» del libretto è il [raccoglitore](#raccoglitore-del-camminatore)
 (ipotesi di lavoro, ottobre 2026, da confermare con il committente): il foglio A5
 piegato avvolge le 60 facciate interne e viene spillato con loro, per **64 facciate
-in tutto** (4 di copertina + 60 interne). Alla copisteria vanno quindi due file:
-l'interno (`libretto_A6.pdf`) e la copertina (`0_raccoglitore_A6.pdf`, facciate A6
-in sequenza: 1 fronte, 2 interno fronte, 3 interno retro, 4 retro). Per questo
+in tutto** (4 di copertina + 60 interne). Alla copisteria vanno quindi due file,
+entrambi da `output/stampa_margini/`: l'interno (`libretto_A6_margini.pdf`) e la
+copertina (`0_raccoglitore_A5_stampa_margini.pdf`: foglio A5 aperto, fronte = retro
+e prima di copertina, retro = interno, con segno della piega di dorso). Per questo
 `--all` rigenera anche il raccoglitore.
 
 Il libretto esiste solo se allineato ai passaporti: ogni generazione **lo
 cancella all'inizio** (con le copie di stampa) e solo `--all`, a fine run
 riuscita, lo riscrive. Rigenerando un singolo gruppo lo script avvisa
 «libretto rimosso perché non più allineato: rigeneralo con --all».
+
+## Stampa in tipografia
+
+Su indicazione della copisteria (ottobre 2026) i PDF per la tipografia devono
+avere **abbondanze** e **segni di taglio**, e testi e cornici tratteggiate devono
+stare ad almeno **3–4 mm** dal taglio, perché in confezionamento non si taglino.
+
+- **Abbondanze** — le pagine A6 sono compilate a 111 × 154 mm: A6 più **3 mm**
+  per lato (`ABBONDANZA_MM`), dove escono gli sfondi blu (copertina, header,
+  facciate piene del raccoglitore). L'A6 porta TrimBox/CropBox sul formato
+  rifilato, così a video e nelle versioni al vivo si vede solo l'A6.
+- **Versione per la tipografia** (`*_stampa_margini.pdf`, `libretto_A6_margini.pdf`)
+  — il foglio rifilato (A4, A5 o A6) è circondato dall'abbondanza e da una fascia
+  bianca di 10 mm (`AREA_SEGNI_MM`) con i **crocini di taglio** agli angoli e i
+  **segni di piega** tratteggiati, in colore di registro e fuori dal formato.
+  Sui fogli piegati l'abbondanza c'è solo sui lati esterni: sulle pieghe interne
+  ogni facciata resta rifilata al suo slot. TrimBox e BleedBox sono impostati.
+- **Area sicura** — tutti i testi stanno ad almeno 4,5 mm dal taglio; la griglia
+  timbri occupa x 4–101 mm e y 14–144 mm, quindi i bordi delle celle stanno a
+  4 mm dal taglio e i riquadri tratteggiati a 5 mm o più.
+
+Le versioni al vivo (`*_stampa.pdf`, `libretto_A6.pdf`) restano senza abbondanze
+né crocini, con le sole tacche di piega dentro il foglio.
 
 ## Verifica numerazione tappe
 
@@ -194,7 +218,7 @@ python genera_raccoglitore.py   # solo il raccoglitore (--all lo genera già)
 
 Produce in `output/`: `0_raccoglitore_A6.pdf`,
 `0_raccoglitore_A5_stampa.pdf` (al vivo) e
-`0_raccoglitore_A5_stampa_margini.pdf` (margini 5 mm).
+`0_raccoglitore_A5_stampa_margini.pdf` (per la tipografia: abbondanze e segni di taglio).
 
 Le 4 facciate logiche (ordine sequenziale A6, imposte con
 `imponi_su_a5`):
@@ -242,7 +266,7 @@ A4 (**83 tappe** = 7 pagine timbri).
 | Foglio di stampa A4 (gruppi 1–3, 5–8) | 210 × 297 mm |
 | Foglio di stampa A5 landscape (Valle d'Aosta) | 210 × 148 mm |
 | Pagina / passaporto chiuso (tutti) | 105 × 148 mm (A6) |
-| Casella timbro (griglia 3×4, 12 per pagina) | cella 35 × 33,5 mm, zona timbro quadrata 26 × 26 mm |
+| Casella timbro (griglia 3×4, 12 per pagina) | cella ≈32,3 × 32,5 mm (griglia 97 × 130 mm, a 4 mm dal taglio), zona timbro quadrata 26 × 26 mm |
 
 Ogni casella mostra il **ref** della tappa in alto a sinistra e il **nome
 regione** in alto a destra (font più piccolo, **grassetto**, stessa riga); dentro il
@@ -319,6 +343,7 @@ progetto/
 ├── genera_copertine.py              # ritaglio foto copertina + lettura credits
 ├── verifica_tappe.py                # controllo salti numerazione per passaporto/regione
 ├── tests/test_libretto.py           # sequenza pagine del libretto unico A6 (pytest)
+├── tests/test_imposizione.py        # box di stampa: abbondanze e segni di taglio (pytest)
 ├── estrai_tappe_passaporto.py       # tappe.xlsx → tappe_passaporto.xlsx
 ├── tappe.xlsx                       # export completo DB (sviluppo; in prod: PostgreSQL)
 ├── tappe_passaporto.xlsx            # fonte dati passaporto (rigenerare dopo tappe.xlsx)

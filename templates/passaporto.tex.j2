@@ -1,11 +1,15 @@
 %% ============================================================
 %% Passaporto del Camminatore — Sentiero Italia CAI
-%% Documento A6 sequenziale (105 x 148 mm).
+%% Documento A6 sequenziale (105 x 148 mm + abbondanze).
 %% L'imposizione 2x2 su A4 fronte/retro è gestita a valle
 %% dallo script Python (pypdf) — design e imposizione separati.
 %% ============================================================
 \documentclass[10pt]{article}
-\usepackage[paperwidth=105mm, paperheight=148mm, margin=0pt]{geometry}
+% pagina A6 + abbondanza su ogni lato: lo sfondo esce dal formato rifilato,
+% testi e cornici restano ad almeno 4 mm dal taglio. TrimBox/BleedBox sono
+% impostati a valle dallo script Python.
+\newlength{\abb}\setlength{\abb}{((( abbondanza_mm )))mm}
+\usepackage[paperwidth=\dimexpr105mm+2\abb\relax, paperheight=\dimexpr148mm+2\abb\relax, margin=0pt]{geometry}
 \usepackage{fontspec}
 \usepackage{xcolor}
 \usepackage{graphicx}
@@ -52,7 +56,7 @@
 % #2 = etichetta destra (es. "Tappe 1–12" oppure "Note")
 % Nessuna numerazione di pagina: le tappe si seguono regione per regione.
 \newcommand{\pageheader}[2]{%
-  \fill[caiblu] (0,0) rectangle (105mm,-14mm);
+  \fill[caiblu] (-\abb,\abb) rectangle (105mm+\abb,-14mm);
   \node[anchor=west, text=bianco, inner sep=0pt]
     at (5mm,-7mm) {\fontsize{9}{11}\selectfont\bfseries #1};
   \node[anchor=center, text=bianco, inner sep=0pt]
@@ -64,9 +68,9 @@
 \begin{document}
 
 %% ── PAGINA 1: COPERTINA ─────────────────────────────────────
-\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}, xshift=\abb, yshift=-\abb]
   % sfondo pieno
-  \fill[caiblu] (0,0) rectangle (105mm,-148mm);
+  \fill[caiblu] (-\abb,\abb) rectangle (105mm+\abb,-148mm-\abb);
 
   % mappa regione/i (40 x 50 mm, in alto a sinistra) — generata a
   % build-time da genera_mappe.py (tile Webmapp + overlay SICAI)
@@ -152,21 +156,25 @@
 %% ── PAGINE TIMBRI ───────────────────────────────────────────
 ((* for pagina in pagine_timbri *))
 \newpage
-\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}, xshift=\abb, yshift=-\abb]
   \pageheader{((( gruppo_nome )))}{Tappe ((( pagina.ref_da )))--((( pagina.ref_a )))}
 
-  % griglia 3x4 (12 celle da 35 x 33.5 mm) sotto l'header da 14 mm
+  % griglia 3x4 sotto l'header da 14 mm, dentro l'area sicura: 4 mm dal
+  % taglio a sinistra, a destra e in basso (x 4–101 mm, y 14–144 mm),
+  % così bordi, testi e riquadri tratteggiati non si tagliano in rifilatura
+  ((* set cw = 97 / 3 *))
+  ((* set ch = 32.5 *))
   ((* for cella in pagina.celle *))
-  ((* set cx = (loop.index0 % 3) * 35 *))
-  ((* set cy = 14 + (loop.index0 // 3) * 33.5 *))
+  ((* set cx = 4 + (loop.index0 % 3) * cw *))
+  ((* set cy = 14 + (loop.index0 // 3) * ch *))
   ((* if cella.tappa *))
   % bordo cella
   \draw[grigiolinea, line width=0.4pt]
-    ({((( cx )))mm}, {-((( cy )))mm}) rectangle ++(35mm,-33.5mm);
+    ({((( cx )))mm}, {-((( cy )))mm}) rectangle ++({((( cw )))mm}, {-((( ch )))mm});
   % filigrana tracciato tappa (centrata nel riquadro timbro 26x26 mm)
   ((* if cella.tappa.tracciato_path *))
   \node[anchor=center, inner sep=0pt, opacity=0.2]
-    at ({((( cx )))mm + 17.5mm}, {-((( cy )))mm - 19mm})
+    at ({((( cx )))mm + ((( cw / 2 )))mm}, {-((( cy )))mm - 18.5mm})
     {\includegraphics[height=24mm]{((( cella.tappa.tracciato_path )))}};
   ((* endif *))
   % ref tappa — alto sinistra
@@ -175,11 +183,11 @@
     {\fontsize{7}{8}\selectfont\bfseries\color{caiblu}{((( cella.tappa.ref )))}};
   % regione — alto destra, font più piccolo (una riga, scala in riduzione)
   \node[anchor=north east, inner sep=0pt, opacity=0.85]
-    at ({((( cx )))mm + 33mm}, {-((( cy )))mm - 1.5mm})
-    {\fitwidth{18mm}{\mbox{\fontsize{4}{4.8}\selectfont\bfseries\color{caiblu}{((( cella.tappa.regione )))}}}};
+    at ({((( cx )))mm + ((( cw - 2 )))mm}, {-((( cy )))mm - 1.5mm})
+    {\fitwidth{17mm}{\mbox{\fontsize{4}{4.8}\selectfont\bfseries\color{caiblu}{((( cella.tappa.regione )))}}}};
   % zona timbro tratteggiata quadrata, centrata sotto il ref
   \draw[grigiolinea, line width=0.5pt, dashed]
-    ({((( cx )))mm + 4.5mm}, {-((( cy )))mm - 6mm}) rectangle ++(26mm,-26mm);
+    ({((( cx )))mm + ((( (cw - 26) / 2 )))mm}, {-((( cy )))mm - 5.5mm}) rectangle ++(26mm,-26mm);
   % info tappa: riempie il riquadro timbro, font adattivo uniforme nella cella
   ((* set lda = (cella.tappa.da|length) if cella.tappa.da else 0 *))
   ((* set la = (cella.tappa.a|length) if cella.tappa.a else 0 *))
@@ -190,7 +198,7 @@
   ((* elif lab <= 95 *))((* set fs = 5.5 *))((* set bs = 6.6 *))
   ((* else *))((* set fs = 5 *))((* set bs = 6 *))((* endif *))
   \node[anchor=center, inner sep=0pt, text width=24mm, align=center]
-    at ({((( cx )))mm + 17.5mm}, {-((( cy )))mm - 19mm})
+    at ({((( cx )))mm + ((( cw / 2 )))mm}, {-((( cy )))mm - 18.5mm})
     {\fontsize{((( fs )))}{((( bs )))}\selectfont\color{testoprimario}
      ((* if cella.tappa.da *)){\bfseries\color{caiblu}Da }((( cella.tappa.da ))) ((* endif *))%
      ((* if cella.tappa.a *)){\bfseries\color{caiblu}a }((( cella.tappa.a )))((* endif *))%
@@ -209,7 +217,7 @@
 %% ── PAGINE NOTE (riempimento fino a multiplo di 4) ──────────
 ((* for _ in range(pagine_note) *))
 \newpage
-\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}]
+\begin{tikzpicture}[remember picture, overlay, shift={(current page.north west)}, xshift=\abb, yshift=-\abb]
   % filigrana logo CAI (centrata su A6, dietro header e righe)
   \node[anchor=center, inner sep=0pt, opacity=0.2] at (52.5mm,-74mm)
     {\includegraphics[height=48mm]{((( asset_path )))logo_cai.png}};

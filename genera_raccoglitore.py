@@ -30,12 +30,12 @@ import cairosvg
 
 from genera_mappe import genera_mappa_italia
 from genera_passaporto import (
+    ABBONDANZA_MM,
     ASSET_DIR,
     DIR_STAMPA,
     DIR_STAMPA_MARGINI,
     FONT_DIR,
     MAPPA_CREDIT,
-    MARGINE_STAMPA_MM,
     OUTPUT_DIR,
     compila_xelatex,
     imponi_su_a5,
@@ -92,8 +92,8 @@ def genera_raccoglitore(output_dir: Path = OUTPUT_DIR) -> dict:
         pdf_a6 = compila_xelatex(tex_source, build_dir)
         shutil.copy(pdf_a6, out_a6)
 
-    n_fogli = imponi_su_a5(out_a6, out_stampa)                    # senza margini (al vivo)
-    imponi_su_a5(out_a6, out_stampa_margini, margine_mm=MARGINE_STAMPA_MM)
+    n_fogli = imponi_su_a5(out_a6, out_stampa)                    # al vivo
+    imponi_su_a5(out_a6, out_stampa_margini, segni_taglio=True)   # per la tipografia
 
     pubblica_pdf_stampa(out_stampa, DIR_STAMPA)
     pubblica_pdf_stampa(out_stampa_margini, DIR_STAMPA_MARGINI)
@@ -107,8 +107,8 @@ def genera_raccoglitore(output_dir: Path = OUTPUT_DIR) -> dict:
     print(
         f"✔ Raccoglitore del Camminatore: 4 facciate, "
         f"{n_fogli} foglio A5 fronte/retro\n"
-        f"  → {out_a6.name}\n  → {out_stampa.name} (senza margini)\n"
-        f"  → {out_stampa_margini.name} (margini {MARGINE_STAMPA_MM} mm)"
+        f"  → {out_a6.name}\n  → {out_stampa.name} (al vivo)\n"
+        f"  → {out_stampa_margini.name} (abbondanze {ABBONDANZA_MM} mm + segni di taglio)"
     )
     return info
 

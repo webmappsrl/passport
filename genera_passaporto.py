@@ -6,9 +6,10 @@ Pipeline (design e imposizione separati, come da architettura del progetto):
 
   1. dati (Excel / PostgreSQL) → contesto Jinja2
   2. Jinja2 → sorgente LaTeX (pagine A6 sequenziali)
-  3. XeLaTeX → passaporto A6 (PDF leggibile/verificabile)
+  3. XeLaTeX → passaporto A6 con 3 mm di abbondanza (a video si vede l'A6)
   4. pypdf  → imposizione 2x2 su A4 fronte/retro con schema
-              duplex corretto (cut & stack) + crocini di taglio
+              duplex corretto (cut & stack): al vivo, e per la
+              tipografia con abbondanze + segni di taglio e piega
   5. pypdf  → libretto unico A6 con tutti i gruppi (solo con --all)
 
 Uso:
@@ -62,7 +63,11 @@ PAGINE_PER_FOGLIO_A4 = 8   # 4 slot fronte + 4 slot retro
 PAGINE_PER_FOGLIO_A5 = 4   # 2 pannelli fronte + 2 pannelli retro
 MAX_TAPPE_A4 = 84          # copertina + 7 pagine timbri × 12
 MAX_TAPPE_A5 = 36          # copertina + 3 pagine timbri × 12 (Val d'Aosta)
-MARGINE_STAMPA_MM = 5      # margine per la versione "con margini di stampa"
+# versione per la tipografia (cartella stampa_margini), su indicazione della
+# copisteria (ottobre 2026): abbondanze e segni di taglio
+ABBONDANZA_MM = 3          # abbondanza oltre il rifilo, su ogni lato
+AREA_SEGNI_MM = 10         # fascia bianca attorno al rifilo per i segni di taglio
+ABB, SEGNI = ABBONDANZA_MM * MM, AREA_SEGNI_MM * MM
 MAPPA_CREDIT = "© CAI © OpenStreetMap"
 
 # ----------------------------------------------------------------------
@@ -388,7 +393,7 @@ def renderizza_tex(context: dict, template: str = "passaporto.tex.j2") -> str:
         undefined=jinja2.StrictUndefined,
         finalize=lambda v: latex_escape(v) if isinstance(v, str) else v,
     )
-    return env.get_template(template).render(**context)
+    return env.get_template(template).render(abbondanza_mm=ABBONDANZA_MM, **context)
 
 
 # ----------------------------------------------------------------------
@@ -411,6 +416,7 @@ def compila_xelatex(tex_source: str, build_dir: Path) -> Path:
         log = (build_dir / "passaporto.log")
         tail = log.read_text(errors="ignore")[-3000:] if log.exists() else result.stdout[-3000:]
         raise RuntimeError(f"Compilazione XeLaTeX fallita:\n{tail}")
+    imposta_box_a6(pdf_path)
     return pdf_path
 
 
@@ -466,79 +472,159 @@ def _slot_origin(slot: tuple[int, int]) -> tuple[float, float]:
     return x, y
 
 
-def _crocini_overlay() -> "PdfReader":
-    """Pagina A4 con segni di piega ai bordi (croce 2x2)."""
+def imposta_box_a6(pdf: Path) -> None:
+    """Box di stampa sull'A6 compilato (A6 + abbondanze su ogni lato).
+
+    MediaBox/BleedBox = pagina intera con le abbondanze, TrimBox/CropBox =
+    formato rifilato 105x148 mm: a video si vede l'A6, l'imposizione ritaglia
+    sul CropBox (pypdf ritaglia la pagina incollata sul suo CropBox).
+    """
+    writer = PdfWriter(clone_from=PdfReader(str(pdf)))
+    for pagina in writer.pages:
+        pagina.mediabox = RectangleObject([0, 0, A6_W + 2 * ABB, A6_H + 2 * ABB])
+        pagina.bleedbox = RectangleObject([0, 0, A6_W + 2 * ABB, A6_H + 2 * ABB])
+        pagina.trimbox = RectangleObject([ABB, ABB, ABB + A6_W, ABB + A6_H])
+        pagina.cropbox = RectangleObject([ABB, ABB, ABB + A6_W, ABB + A6_H])
+    with open(pdf, "wb") as f:
+        writer.write(f)
+
+
+def _rettangolo_sorgente(t: Transformation, rect: list[float]) -> RectangleObject:
+    """Rettangolo del foglio riportato nelle coordinate della pagina A6 (inversa di t)."""
+    a, b, c, d, e, f = t.ctm
+    det = a * d - b * c
+    punti = []
+    for x in (rect[0], rect[2]):
+        for y in (rect[1], rect[3]):
+            x0, y0 = x - e, y - f
+            punti.append(((d * x0 - c * y0) / det, (-b * x0 + a * y0) / det))
+    xs, ys = zip(*punti)
+    return RectangleObject([min(xs), min(ys), max(xs), max(ys)])
+
+
+def _segni_overlay(larghezza: float, altezza: float, pieghe: list[tuple[str, float]],
+                   segni_taglio: bool) -> "PdfReader":
+    """Pagina con i segni di piega e, per la tipografia, i segni di taglio.
+
+    pieghe: ("v", x) o ("h", y) nel foglio rifilato.
+    Al vivo: tacche di piega tratteggiate ai bordi, dentro il foglio.
+    Con segni di taglio: crocini agli angoli e tacche di piega nella fascia
+    bianca fuori dal formato, a partire da fine abbondanza (niente dentro
+    il rifilo). Colore di registro (CMYK 100/100/100/100).
+    """
     import io
+    o = SEGNI if segni_taglio else 0
+    pw, ph = larghezza + 2 * o, altezza + 2 * o
     buf = io.BytesIO()
-    c = rl_canvas.Canvas(buf, pagesize=(A4_W, A4_H))
-    c.setLineWidth(0.3)
-    c.setStrokeColorRGB(0.45, 0.45, 0.45)
-    c.setDash(2, 2)
-    tick = 4 * MM
-    x_fold = A6_W                          # piega verticale centrale
-    y_fold = A4_H - A6_H                   # piega orizzontale
-    c.line(x_fold, A4_H, x_fold, A4_H - tick)
-    c.line(x_fold, 0, x_fold, tick)
-    c.line(0, y_fold, tick, y_fold)
-    c.line(A4_W - tick, y_fold, A4_W, y_fold)
+    c = rl_canvas.Canvas(buf, pagesize=(pw, ph))
+    if segni_taglio:
+        c.setLineWidth(0.25)
+        c.setStrokeColorCMYK(1, 1, 1, 1)
+        da, a = ABB, SEGNI - 1 * MM  # distanza dal rifilo: inizio e fine del segno
+        for cx, sx in ((o, -1), (o + larghezza, 1)):
+            for cy, sy in ((o, -1), (o + altezza, 1)):
+                c.line(cx + sx * da, cy, cx + sx * a, cy)
+                c.line(cx, cy + sy * da, cx, cy + sy * a)
+        c.setDash(2, 2)
+        for verso, pos in pieghe:
+            if verso == "v":
+                c.line(o + pos, o - da, o + pos, o - a)
+                c.line(o + pos, o + altezza + da, o + pos, o + altezza + a)
+            else:
+                c.line(o - da, o + pos, o - a, o + pos)
+                c.line(o + larghezza + da, o + pos, o + larghezza + a, o + pos)
+    else:
+        c.setLineWidth(0.3)
+        c.setStrokeColorRGB(0.45, 0.45, 0.45)
+        c.setDash(2, 2)
+        tick = 4 * MM
+        for verso, pos in pieghe:
+            if verso == "v":
+                c.line(pos, altezza, pos, altezza - tick)
+                c.line(pos, 0, pos, tick)
+            else:
+                c.line(0, pos, tick, pos)
+                c.line(larghezza - tick, pos, larghezza, pos)
     c.showPage()
     c.save()
     buf.seek(0)
     return PdfReader(buf)
 
 
-def imponi_su_a4(a6_pdf: Path, output_pdf: Path, crocini: bool = True,
-                 margine_mm: float = 0.0) -> int:
-    """Imposizione 2x2 fronte/retro per ripiegabile a croce.
+def imponi(a6_pdf: Path, output_pdf: Path, foglio: tuple[float, float],
+           layout: list[tuple[int, float, float, bool]],
+           pieghe: list[tuple[str, float]], segni_taglio: bool = False) -> int:
+    """Monta le pagine A6 (con abbondanze, v. imposta_box_a6) su fogli.
 
-    margine_mm = 0  → senza margini (al vivo, per stampa tipografica)
-    margine_mm > 0  → montaggio scalato e centrato dentro l'area utile
-                      A4 meno il margine (stampanti non borderless)
+    foglio: formato rifilato (larghezza, altezza) in punti.
+    layout: per ogni pagina logica del foglio (lato, x, y, ruota180), con
+            x/y angolo in basso a sinistra dello slot nel foglio rifilato;
+            lato 0 = fronte, 1 = retro.
+    segni_taglio = False → al vivo: pagina = foglio, ogni A6 rifilato al suo slot
+    segni_taglio = True  → per la tipografia: foglio + 3 mm di abbondanza sui
+                           lati esterni (sulle pieghe interne il taglio resta
+                           netto) + fascia bianca con crocini di taglio e di
+                           piega; TrimBox/BleedBox impostati.
     """
     reader = PdfReader(str(a6_pdf))
     n = len(reader.pages)
-    n_fogli = math.ceil(n / PAGINE_PER_FOGLIO_A4)
+    per_foglio = len(layout)
+    n_fogli = math.ceil(n / per_foglio)
+    n_lati = max(lato for lato, *_ in layout) + 1
+    larghezza, altezza = foglio
+    o = SEGNI if segni_taglio else 0
+    pw, ph = larghezza + 2 * o, altezza + 2 * o
+    segni = _segni_overlay(larghezza, altezza, pieghe, segni_taglio).pages[0]
     writer = PdfWriter()
-    marks = _crocini_overlay().pages[0] if crocini else None
+    eps = 0.01
 
-    m = margine_mm * MM
-    scala = min((A4_W - 2 * m) / A4_W, (A4_H - 2 * m) / A4_H)
-    off_x = (A4_W - A4_W * scala) / 2
-    off_y = (A4_H - A4_H * scala) / 2
-    riduzione = Transformation().scale(scala).translate(tx=off_x, ty=off_y)
+    for foglio_idx in range(n_fogli):
+        base = foglio_idx * per_foglio
+        lati = [writer.add_blank_page(width=pw, height=ph) for _ in range(n_lati)]
 
-    for foglio in range(n_fogli):
-        base = foglio * PAGINE_PER_FOGLIO_A4
-        fronte = writer.add_blank_page(width=A4_W, height=A4_H)
-        retro = writer.add_blank_page(width=A4_W, height=A4_H)
-        lati = (fronte, retro)
-
-        for offset, (lato, slot, ruota) in enumerate(_FOLD_LAYOUT):
+        for offset, (lato, x, y, ruota) in enumerate(layout):
             page_idx = base + offset
             if page_idx >= n:
                 continue
-            x, y = _slot_origin(slot)
-            t = Transformation()
+            # l'A6 ha l'abbondanza attorno: prima si porta il rifilo nell'origine
+            t = Transformation().translate(tx=-ABB, ty=-ABB)
             if ruota:
                 # rotazione 180° dentro lo slot
                 t = t.rotate(180).translate(tx=x + A6_W, ty=y + A6_H)
             else:
                 t = t.translate(tx=x, ty=y)
-            if margine_mm > 0:
-                t = Transformation(t.ctm).scale(scala).translate(tx=off_x, ty=off_y)
-            lati[lato].merge_transformed_page(reader.pages[page_idx], t)
+            t = t.translate(tx=o, ty=o)
+
+            # area visibile dello slot: abbondanza solo sui lati esterni del foglio
+            ab = ABB if segni_taglio else 0
+            clip = [
+                o + x - (ab if x < eps else 0),
+                o + y - (ab if y < eps else 0),
+                o + x + A6_W + (ab if x + A6_W > larghezza - eps else 0),
+                o + y + A6_H + (ab if y + A6_H > altezza - eps else 0),
+            ]
+            pagina = reader.pages[page_idx]
+            pagina.cropbox = _rettangolo_sorgente(t, clip)
+            lati[lato].merge_transformed_page(pagina, t)
 
         for dest in lati:
-            if marks is not None:
-                if margine_mm > 0:
-                    dest.merge_transformed_page(marks, riduzione)
-                else:
-                    dest.merge_page(marks)
-            dest.mediabox = RectangleObject([0, 0, A4_W, A4_H])
+            dest.merge_page(segni)
+            dest.mediabox = RectangleObject([0, 0, pw, ph])
+            dest.trimbox = RectangleObject([o, o, o + larghezza, o + altezza])
+            if segni_taglio:
+                dest.bleedbox = RectangleObject(
+                    [o - ABB, o - ABB, o + larghezza + ABB, o + altezza + ABB])
 
     with open(output_pdf, "wb") as f:
         writer.write(f)
     return n_fogli
+
+
+def imponi_su_a4(a6_pdf: Path, output_pdf: Path, segni_taglio: bool = False) -> int:
+    """Imposizione 2x2 fronte/retro per ripiegabile a croce."""
+    layout = [(lato, *_slot_origin(slot), ruota) for lato, slot, ruota in _FOLD_LAYOUT]
+    pieghe = [("v", A6_W), ("h", A4_H - A6_H)]
+    return imponi(a6_pdf, output_pdf, (A4_W, A4_H), layout, pieghe, segni_taglio)
 
 
 # ----------------------------------------------------------------------
@@ -570,69 +656,15 @@ _FOLD_LAYOUT_A5 = [
 ]
 
 
-def _crocini_overlay_a5() -> "PdfReader":
-    """Pagina A5 landscape con segni di piega ai bordi (piega verticale)."""
-    import io
-    buf = io.BytesIO()
-    c = rl_canvas.Canvas(buf, pagesize=(A5L_W, A5L_H))
-    c.setLineWidth(0.3)
-    c.setStrokeColorRGB(0.45, 0.45, 0.45)
-    c.setDash(2, 2)
-    tick = 4 * MM
-    x_fold = A6_W  # piega verticale centrale
-    c.line(x_fold, A5L_H, x_fold, A5L_H - tick)
-    c.line(x_fold, 0, x_fold, tick)
-    c.showPage()
-    c.save()
-    buf.seek(0)
-    return PdfReader(buf)
+def imponi_su_a5(a6_pdf: Path, output_pdf: Path, segni_taglio: bool = False) -> int:
+    """Imposizione 2x1 fronte/retro su A5 landscape (libretto a piega unica)."""
+    layout = [(lato, col * A6_W, 0, False) for lato, col in _FOLD_LAYOUT_A5]
+    return imponi(a6_pdf, output_pdf, (A5L_W, A5L_H), layout, [("v", A6_W)], segni_taglio)
 
 
-def imponi_su_a5(a6_pdf: Path, output_pdf: Path, crocini: bool = True,
-                 margine_mm: float = 0.0) -> int:
-    """Imposizione 2x1 fronte/retro su A5 landscape (libretto a piega unica).
-
-    margine_mm = 0  → senza margini (al vivo, per stampa tipografica)
-    margine_mm > 0  → montaggio scalato e centrato dentro l'area utile
-    """
-    reader = PdfReader(str(a6_pdf))
-    n = len(reader.pages)
-    n_fogli = math.ceil(n / PAGINE_PER_FOGLIO_A5)
-    writer = PdfWriter()
-    marks = _crocini_overlay_a5().pages[0] if crocini else None
-
-    m = margine_mm * MM
-    scala = min((A5L_W - 2 * m) / A5L_W, (A5L_H - 2 * m) / A5L_H)
-    off_x = (A5L_W - A5L_W * scala) / 2
-    off_y = (A5L_H - A5L_H * scala) / 2
-    riduzione = Transformation().scale(scala).translate(tx=off_x, ty=off_y)
-
-    for foglio in range(n_fogli):
-        base = foglio * PAGINE_PER_FOGLIO_A5
-        fronte = writer.add_blank_page(width=A5L_W, height=A5L_H)
-        retro = writer.add_blank_page(width=A5L_W, height=A5L_H)
-        lati = (fronte, retro)
-
-        for offset, (lato, col) in enumerate(_FOLD_LAYOUT_A5):
-            page_idx = base + offset
-            if page_idx >= n:
-                continue
-            t = Transformation().translate(tx=col * A6_W, ty=0)
-            if margine_mm > 0:
-                t = Transformation(t.ctm).scale(scala).translate(tx=off_x, ty=off_y)
-            lati[lato].merge_transformed_page(reader.pages[page_idx], t)
-
-        for dest in lati:
-            if marks is not None:
-                if margine_mm > 0:
-                    dest.merge_transformed_page(marks, riduzione)
-                else:
-                    dest.merge_page(marks)
-            dest.mediabox = RectangleObject([0, 0, A5L_W, A5L_H])
-
-    with open(output_pdf, "wb") as f:
-        writer.write(f)
-    return n_fogli
+def imponi_su_a6(a6_pdf: Path, output_pdf: Path, segni_taglio: bool = False) -> int:
+    """Una facciata A6 per pagina (libretto): rifilata o con abbondanze e crocini."""
+    return imponi(a6_pdf, output_pdf, (A6_W, A6_H), [(0, 0, 0, False)], [], segni_taglio)
 
 
 # ----------------------------------------------------------------------
@@ -704,22 +736,6 @@ def componi_libretto(infos: list[dict], output_pdf: Path) -> list[tuple[str, int
     return [(i["gruppo"], da, a) for i, da, a in zip(infos, copertine, fine)]
 
 
-def riduci_con_margini(a6_pdf: Path, output_pdf: Path, margine_mm: float) -> None:
-    """Ogni pagina A6 ridotta e centrata su un A6 bianco con margine_mm per lato."""
-    reader = PdfReader(str(a6_pdf))
-    writer = PdfWriter()
-    m = margine_mm * MM
-    scala = min((A6_W - 2 * m) / A6_W, (A6_H - 2 * m) / A6_H)
-    off_x = (A6_W - A6_W * scala) / 2
-    off_y = (A6_H - A6_H * scala) / 2
-    riduzione = Transformation().scale(scala).translate(tx=off_x, ty=off_y)
-    for pagina in reader.pages:
-        dest = writer.add_blank_page(width=A6_W, height=A6_H)
-        dest.merge_transformed_page(pagina, riduzione)
-    with open(output_pdf, "wb") as f:
-        writer.write(f)
-
-
 def _tipo_pagina(testo: str) -> str:
     if "PASSAPORTO" in testo:
         return "copertina"
@@ -770,22 +786,26 @@ def rimuovi_libretto(output_dir: Path = OUTPUT_DIR) -> bool:
 
 
 def genera_libretto(infos: list[dict], output_dir: Path = OUTPUT_DIR) -> None:
-    """Libretto al vivo + versione con margini, verificato e pubblicato per la stampa."""
+    """Libretto al vivo + versione per la tipografia, verificati e pubblicati per la stampa."""
     out = output_dir / LIBRETTO_A6.name
     out_margini = output_dir / LIBRETTO_A6_MARGINI.name
-    mappa = componi_libretto(infos, out)
+    with tempfile.TemporaryDirectory() as tmp:
+        composto = Path(tmp) / out.name  # A6 con abbondanze, da rifilare o segnare
+        mappa = componi_libretto(infos, composto)
+        imponi_su_a6(composto, out)
+        imponi_su_a6(composto, out_margini, segni_taglio=True)
     attesi = [tipo for _, _, tipo in piano_libretto(
         [(i["gruppo"], i["pagine_timbri"], i["pagine_note"]) for i in infos]
     )]
     verifica_libretto(out, attesi)
-    riduci_con_margini(out, out_margini, MARGINE_STAMPA_MM)
+    verifica_libretto(out_margini, attesi)
     pubblica_pdf_stampa(out, output_dir / "stampa")
     pubblica_pdf_stampa(out_margini, output_dir / "stampa_margini")
     print(
         f"✔ Libretto unico A6: {len(attesi)} facciate\n  "
         + ", ".join(f"{g} {da}-{a}" for g, da, a in mappa)
         + f"\n  → {out.name} (al vivo)\n  → {out_margini.name} "
-        f"(margini {MARGINE_STAMPA_MM} mm)\n"
+        f"(abbondanze {ABBONDANZA_MM} mm + segni di taglio)\n"
     )
 
 
@@ -888,9 +908,9 @@ def genera_passaporto(
         pdf_a6 = compila_xelatex(tex_source, Path(tmp))
         shutil.copy(pdf_a6, out_a6)
 
-    imponi = imponi_su_a5 if formato == "A5" else imponi_su_a4
-    n_fogli = imponi(out_a6, out_stampa)                          # senza margini (al vivo)
-    imponi(out_a6, out_stampa_margini, margine_mm=MARGINE_STAMPA_MM)
+    imponi_foglio = imponi_su_a5 if formato == "A5" else imponi_su_a4
+    n_fogli = imponi_foglio(out_a6, out_stampa)                   # al vivo
+    imponi_foglio(out_a6, out_stampa_margini, segni_taglio=True)  # per la tipografia
 
     pubblica_pdf_stampa(out_stampa, DIR_STAMPA)
     pubblica_pdf_stampa(out_stampa_margini, DIR_STAMPA_MARGINI)
@@ -912,8 +932,8 @@ def genera_passaporto(
         f"✔ {gruppo_nome} ({' · '.join(regioni)}): {info['tappe']} tappe, "
         f"{info['pagine_timbri']} pagine timbri, {info['pagine_note']} pagine note, "
         f"{info['fogli']} fogli {formato} fronte/retro\n"
-        f"  → {out_a6.name}\n  → {out_stampa.name} (senza margini)\n"
-        f"  → {out_stampa_margini.name} (margini {MARGINE_STAMPA_MM} mm)"
+        f"  → {out_a6.name}\n  → {out_stampa.name} (al vivo)\n"
+        f"  → {out_stampa_margini.name} (abbondanze {ABBONDANZA_MM} mm + segni di taglio)"
     )
     return info
 
