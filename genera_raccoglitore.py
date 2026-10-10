@@ -40,6 +40,7 @@ from genera_passaporto import (
     compila_xelatex,
     imponi_su_a5,
     pubblica_pdf_stampa,
+    pubblica_varianti_colore,
     renderizza_tex,
 )
 
@@ -97,6 +98,8 @@ def genera_raccoglitore(output_dir: Path = OUTPUT_DIR) -> dict:
 
     pubblica_pdf_stampa(out_stampa, DIR_STAMPA)
     pubblica_pdf_stampa(out_stampa_margini, DIR_STAMPA_MARGINI)
+    pubblica_varianti_colore(out_stampa_margini, "Raccoglitore del Camminatore (Sentiero Italia CAI)",
+                             output_dir)
 
     info = {
         "fogli": n_fogli,
@@ -108,7 +111,8 @@ def genera_raccoglitore(output_dir: Path = OUTPUT_DIR) -> dict:
         f"✔ Raccoglitore del Camminatore: 4 facciate, "
         f"{n_fogli} foglio A5 fronte/retro\n"
         f"  → {out_a6.name}\n  → {out_stampa.name} (al vivo)\n"
-        f"  → {out_stampa_margini.name} (abbondanze {ABBONDANZA_MM} mm + segni di taglio)"
+        f"  → {out_stampa_margini.name} (abbondanze {ABBONDANZA_MM} mm + segni di taglio)\n"
+        f"  → varianti PDF/X-4 in stampa_cmyk/ e stampa_rgb/"
     )
     return info
 

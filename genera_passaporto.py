@@ -32,12 +32,12 @@ from pathlib import Path
 import jinja2
 import pandas as pd
 
+from esporta_colore import converti_cmyk, converti_rgb
 from genera_copertine import prepara_copertina
 from genera_mappe import genera_filigrana_tracciato, genera_mappa_gruppo, ref_a_sicai_code
-from pypdf import PdfReader, PdfWriter, Transformation
-from pypdf.generic import RectangleObject
+from pypdf import PageObject, PdfReader, PdfWriter, Transformation
+from pypdf.generic import ContentStream, DecodedStreamObject, RectangleObject
 from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas as rl_canvas
 
 BASE_DIR = Path(__file__).resolve().parent
 EXCEL_SOURCE_PATH = BASE_DIR / "tappe.xlsx"
@@ -51,6 +51,7 @@ FONT_DIR = BASE_DIR / "fonts"
 OUTPUT_DIR = BASE_DIR / "output"
 DIR_STAMPA = OUTPUT_DIR / "stampa"
 DIR_STAMPA_MARGINI = OUTPUT_DIR / "stampa_margini"
+CARTELLE_STAMPA = ("stampa", "stampa_margini", "stampa_cmyk", "stampa_rgb")
 
 # Dimensioni in punti PostScript (1 mm = 72/25.4 pt)
 MM = 72 / 25.4
@@ -503,52 +504,60 @@ def _rettangolo_sorgente(t: Transformation, rect: list[float]) -> RectangleObjec
 
 
 def _segni_overlay(larghezza: float, altezza: float, pieghe: list[tuple[str, float]],
-                   segni_taglio: bool) -> "PdfReader":
+                   segni_taglio: bool) -> "PageObject":
     """Pagina con i segni di piega e, per la tipografia, i segni di taglio.
 
     pieghe: ("v", x) o ("h", y) nel foglio rifilato.
-    Al vivo: tacche di piega tratteggiate ai bordi, dentro il foglio.
-    Con segni di taglio: crocini agli angoli e tacche di piega nella fascia
-    bianca fuori dal formato, a partire da fine abbondanza (niente dentro
-    il rifilo). Colore di registro (CMYK 100/100/100/100).
+    Al vivo: tacche di piega tratteggiate ai bordi, dentro il foglio, grigio
+    in solo nero. Con segni di taglio: crocini agli angoli e tacche di piega
+    nella fascia bianca fuori dal formato, a partire da fine abbondanza
+    (niente dentro il rifilo), in colore di registro (CMYK 100/100/100/100).
+    Scritta come content stream PDF puro: niente font (reportlab dichiarerebbe
+    un Helvetica non incorporato, non ammesso in PDF/X).
     """
-    import io
     o = SEGNI if segni_taglio else 0
     pw, ph = larghezza + 2 * o, altezza + 2 * o
-    buf = io.BytesIO()
-    c = rl_canvas.Canvas(buf, pagesize=(pw, ph))
+    continui: list[tuple[float, float, float, float]] = []
+    tratteggiati: list[tuple[float, float, float, float]] = []
     if segni_taglio:
-        c.setLineWidth(0.25)
-        c.setStrokeColorCMYK(1, 1, 1, 1)
         da, a = ABB, SEGNI - 1 * MM  # distanza dal rifilo: inizio e fine del segno
         for cx, sx in ((o, -1), (o + larghezza, 1)):
             for cy, sy in ((o, -1), (o + altezza, 1)):
-                c.line(cx + sx * da, cy, cx + sx * a, cy)
-                c.line(cx, cy + sy * da, cx, cy + sy * a)
-        c.setDash(2, 2)
+                continui.append((cx + sx * da, cy, cx + sx * a, cy))
+                continui.append((cx, cy + sy * da, cx, cy + sy * a))
         for verso, pos in pieghe:
             if verso == "v":
-                c.line(o + pos, o - da, o + pos, o - a)
-                c.line(o + pos, o + altezza + da, o + pos, o + altezza + a)
+                tratteggiati.append((o + pos, o - da, o + pos, o - a))
+                tratteggiati.append((o + pos, o + altezza + da, o + pos, o + altezza + a))
             else:
-                c.line(o - da, o + pos, o - a, o + pos)
-                c.line(o + larghezza + da, o + pos, o + larghezza + a, o + pos)
+                tratteggiati.append((o - da, o + pos, o - a, o + pos))
+                tratteggiati.append((o + larghezza + da, o + pos, o + larghezza + a, o + pos))
+        stile = "0.25 w 1 1 1 1 K"
     else:
-        c.setLineWidth(0.3)
-        c.setStrokeColorRGB(0.45, 0.45, 0.45)
-        c.setDash(2, 2)
         tick = 4 * MM
         for verso, pos in pieghe:
             if verso == "v":
-                c.line(pos, altezza, pos, altezza - tick)
-                c.line(pos, 0, pos, tick)
+                tratteggiati.append((pos, altezza, pos, altezza - tick))
+                tratteggiati.append((pos, 0, pos, tick))
             else:
-                c.line(0, pos, tick, pos)
-                c.line(larghezza - tick, pos, larghezza, pos)
-    c.showPage()
-    c.save()
-    buf.seek(0)
-    return PdfReader(buf)
+                tratteggiati.append((0, pos, tick, pos))
+                tratteggiati.append((larghezza - tick, pos, larghezza, pos))
+        stile = "0.3 w 0 0 0 0.55 K"
+
+    def tratti(segmenti):
+        return " ".join(f"{x0:.3f} {y0:.3f} m {x1:.3f} {y1:.3f} l" for x0, y0, x1, y1 in segmenti)
+
+    ops = [f"q {stile}"]
+    if continui:
+        ops.append(f"[] 0 d {tratti(continui)} S")
+    if tratteggiati:
+        ops.append(f"[2 2] 0 d {tratti(tratteggiati)} S")
+    ops.append("Q")
+    contenuto = DecodedStreamObject()
+    contenuto.set_data(" ".join(ops).encode())
+    pagina = PdfWriter().add_blank_page(width=pw, height=ph)
+    pagina.replace_contents(ContentStream(contenuto, None))
+    return pagina
 
 
 def imponi(a6_pdf: Path, output_pdf: Path, foglio: tuple[float, float],
@@ -574,7 +583,7 @@ def imponi(a6_pdf: Path, output_pdf: Path, foglio: tuple[float, float],
     larghezza, altezza = foglio
     o = SEGNI if segni_taglio else 0
     pw, ph = larghezza + 2 * o, altezza + 2 * o
-    segni = _segni_overlay(larghezza, altezza, pieghe, segni_taglio).pages[0]
+    segni = _segni_overlay(larghezza, altezza, pieghe, segni_taglio)
     writer = PdfWriter()
     eps = 0.01
 
@@ -773,10 +782,11 @@ def verifica_libretto(pdf: Path, attesi: list[str]) -> None:
 
 def rimuovi_libretto(output_dir: Path = OUTPUT_DIR) -> bool:
     """Cancella i PDF del libretto e le loro copie di stampa. True se ne c'erano."""
-    nomi = (LIBRETTO_A6.name, LIBRETTO_A6_MARGINI.name)
+    nomi = (LIBRETTO_A6.name, LIBRETTO_A6_MARGINI.name,
+            "libretto_A6_cmyk.pdf", "libretto_A6_rgb.pdf")
     candidati = [output_dir / n for n in nomi]
     candidati += [output_dir / cartella / n
-                  for cartella in ("stampa", "stampa_margini") for n in nomi]
+                  for cartella in CARTELLE_STAMPA for n in nomi]
     rimossi = False
     for pdf in candidati:
         if pdf.exists():
@@ -801,11 +811,14 @@ def genera_libretto(infos: list[dict], output_dir: Path = OUTPUT_DIR) -> None:
     verifica_libretto(out_margini, attesi)
     pubblica_pdf_stampa(out, output_dir / "stampa")
     pubblica_pdf_stampa(out_margini, output_dir / "stampa_margini")
+    pubblica_varianti_colore(out_margini, "Passaporto del Camminatore — libretto unico A6",
+                             output_dir)
     print(
         f"✔ Libretto unico A6: {len(attesi)} facciate\n  "
         + ", ".join(f"{g} {da}-{a}" for g, da, a in mappa)
         + f"\n  → {out.name} (al vivo)\n  → {out_margini.name} "
         f"(abbondanze {ABBONDANZA_MM} mm + segni di taglio)\n"
+        f"  → libretto_A6_cmyk.pdf / libretto_A6_rgb.pdf (PDF/X-4)\n"
     )
 
 
@@ -815,12 +828,26 @@ def genera_libretto(infos: list[dict], output_dir: Path = OUTPUT_DIR) -> None:
 
 def reset_cartelle_stampa(output_dir: Path = OUTPUT_DIR) -> None:
     """Svuota le cartelle di export piatto prima di una rigenerazione --all."""
-    for nome in ("stampa", "stampa_margini"):
+    for nome in CARTELLE_STAMPA:
         cartella = output_dir / nome
         if not cartella.exists():
             continue
         for pdf in cartella.glob("*.pdf"):
             pdf.unlink()
+
+
+def pubblica_varianti_colore(pdf_margini: Path, titolo: str,
+                             output_dir: Path = OUTPUT_DIR) -> tuple[Path, Path]:
+    """Dal PDF per la tipografia, le due varianti PDF/X-4 (FOGRA39).
+
+    stampa_cmyk/<nome>_cmyk.pdf: tutto convertito in CMYK da noi;
+    stampa_rgb/<nome>_rgb.pdf: RGB dichiarato sRGB, converte la tipografia.
+    """
+    base = pdf_margini.stem.removesuffix("_margini")
+    return (
+        converti_cmyk(pdf_margini, output_dir / "stampa_cmyk" / f"{base}_cmyk.pdf", titolo),
+        converti_rgb(pdf_margini, output_dir / "stampa_rgb" / f"{base}_rgb.pdf", titolo),
+    )
 
 
 def pubblica_pdf_stampa(src: Path, dest_dir: Path) -> Path:
@@ -914,6 +941,9 @@ def genera_passaporto(
 
     pubblica_pdf_stampa(out_stampa, DIR_STAMPA)
     pubblica_pdf_stampa(out_stampa_margini, DIR_STAMPA_MARGINI)
+    pubblica_varianti_colore(
+        out_stampa_margini, f"Passaporto del Camminatore — {gruppo_nome} (Sentiero Italia CAI)"
+    )
 
     info = {
         "gruppo": gruppo_nome,
@@ -933,7 +963,8 @@ def genera_passaporto(
         f"{info['pagine_timbri']} pagine timbri, {info['pagine_note']} pagine note, "
         f"{info['fogli']} fogli {formato} fronte/retro\n"
         f"  → {out_a6.name}\n  → {out_stampa.name} (al vivo)\n"
-        f"  → {out_stampa_margini.name} (abbondanze {ABBONDANZA_MM} mm + segni di taglio)"
+        f"  → {out_stampa_margini.name} (abbondanze {ABBONDANZA_MM} mm + segni di taglio)\n"
+        f"  → varianti PDF/X-4 in stampa_cmyk/ e stampa_rgb/"
     )
     return info
 

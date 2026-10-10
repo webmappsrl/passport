@@ -14,13 +14,14 @@ una facciata A6 per pagina, da stampare e spillare al centro (vedi
 ```bash
 pip install -r requirements.txt
 # richiede xelatex (texlive-xetex) installato nel sistema
+# e Ghostscript per la variante CMYK (macOS: brew install ghostscript)
 
 python genera_passaporto.py --all          # 9 passaporti + libretto unico A6 + raccoglitore
 python genera_passaporto.py "Nord Est"     # un gruppo specifico
 python genera_passaporto.py --list         # gruppi disponibili
 python genera_passaporto.py --all --filigrana-mappa  # filigrana timbro con basemap
 python verifica_tappe.py                   # controllo salti numerazione tappe
-python -m pytest                           # test sequenza libretto e box di stampa
+python -m pytest                           # test libretto, box di stampa, PDF/X-4
 ```
 
 Dopo ogni modifica alla copertina (template, layout, crediti foto o mappe,
@@ -39,7 +40,9 @@ file in root, senza sottocartelle per gruppo, **senza** PDF A6):
 | Cartella | Contenuto |
 |---|---|
 | `output/stampa/` | 9 passaporti + raccoglitore, versione **al vivo** (`*_stampa.pdf`), + `libretto_A6.pdf` |
-| `output/stampa_margini/` | 9 passaporti + raccoglitore, versione **per la tipografia** con abbondanze e segni di taglio (`*_stampa_margini.pdf`), + `libretto_A6_margini.pdf` — **sono questi i file da mandare alla copisteria** |
+| `output/stampa_margini/` | 9 passaporti + raccoglitore, versione **per la tipografia** con abbondanze e segni di taglio (`*_stampa_margini.pdf`), + `libretto_A6_margini.pdf` |
+| `output/stampa_cmyk/` | gli stessi file per la tipografia in **PDF/X-4 CMYK FOGRA39** (`*_cmyk.pdf`, `libretto_A6_cmyk.pdf`) — vedi [Varianti colore](#varianti-colore-pdfx-4) |
+| `output/stampa_rgb/` | gli stessi file per la tipografia in **PDF/X-4 RGB sRGB** (`*_rgb.pdf`, `libretto_A6_rgb.pdf`) |
 
 I PDF per gruppo in `output/<N>_<slug>/` (inclusi gli A6 per verifica a video)
 restano disponibili come prima. I nomi file hanno un **prefisso numerico**
@@ -92,8 +95,9 @@ piegato avvolge le 60 facciate interne e viene spillato con loro, per **64 facci
 in tutto** (4 di copertina + 60 interne). Alla copisteria vanno quindi due file,
 entrambi da `output/stampa_margini/`: l'interno (`libretto_A6_margini.pdf`) e la
 copertina (`0_raccoglitore_A5_stampa_margini.pdf`: foglio A5 aperto, fronte = retro
-e prima di copertina, retro = interno, con segno della piega di dorso). Per questo
-`--all` rigenera anche il raccoglitore.
+e prima di copertina, retro = interno, con segno della piega di dorso), oppure gli
+stessi due file da `output/stampa_cmyk/` o `output/stampa_rgb/` se la copisteria
+chiede PDF/X-4 in CMYK o in RGB. Per questo `--all` rigenera anche il raccoglitore.
 
 Il libretto esiste solo se allineato ai passaporti: ogni generazione **lo
 cancella all'inizio** (con le copie di stampa) e solo `--all`, a fine run
@@ -122,6 +126,35 @@ stare ad almeno **3–4 mm** dal taglio, perché in confezionamento non si tagli
 
 Le versioni al vivo (`*_stampa.pdf`, `libretto_A6.pdf`) restano senza abbondanze
 né crocini, con le sole tacche di piega dentro il foglio.
+
+I grigi di linee e testi secondari (`grigiolinea` K 20%, `grigiochiarotesto`
+K 58%) sono definiti in **solo nero**: in quadricromia le linee sottili
+(riquadri tratteggiati, bordi celle) restano nitide anche con un registro
+imperfetto. Il blu CAI è già CMYK (100/72/0/19, FOGRA39, dal brandbook).
+
+### Varianti colore (PDF/X-4)
+
+Foto, mappe, filigrane, loghi e azzurro sono RGB. Dai PDF per la tipografia
+(`stampa_margini/`) `esporta_colore.py` ricava due varianti, entrambe **PDF/X-4**
+con condizione di stampa **FOGRA39** (OutputIntent con profilo incorporato,
+metadati XMP, Trapped), da scegliere in base a cosa chiede la copisteria:
+
+| Cartella | Colore | Quando usarla |
+|---|---|---|
+| `output/stampa_cmyk/` | tutto **CMYK**: Ghostscript converte l'RGB verso FOGRA39 in un solo passaggio sul PDF finale (colorimetrico relativo + compensazione del punto nero, senza ricampionare le immagini); il colore già CMYK resta invariato | la copisteria vuole file CMYK |
+| `output/stampa_rgb/` | colore **invariato**, l'RGB è dichiarato **sRGB** (profilo sRGB2014 su immagini, gruppi di trasparenza e `DefaultRGB` per i colori vettoriali) | la copisteria accetta RGB e converte con il suo profilo |
+
+Profili in `assets/icc/`, dal registro ICC (color.org): `Coated_Fogra39L_VIGC_300.icc`
+(FOGRA39) e `sRGB2014.icc`. Il profilo FOGRA39 incorporato pesa circa 8,6 MB per file.
+
+Ogni file è **riletto e verificato** prima della pubblicazione (`verifica_pdfx4`):
+versione PDF ≤ 1.6, `/ID`, un solo OutputIntent con profilo CMYK, Trapped, XMP
+PDF/X-4, TrimBox dentro BleedBox dentro MediaBox, nessuna pagina ruotata, nessuna
+annotazione, font tutti incorporati, niente funzioni di trasferimento, e per il
+colore: nessun RGB nella variante CMYK, nessun RGB non dichiarato nella variante
+RGB. In caso di errore la generazione si ferma. Ghostscript va lanciato con
+`-dAutoRotatePages=/None`: altrimenti ruota di 180° i fronti A4, dove prevale il
+testo capovolto.
 
 ## Verifica numerazione tappe
 
@@ -341,9 +374,11 @@ progetto/
 ├── genera_raccoglitore.py           # raccoglitore A5→A6 (riusa la pipeline)
 ├── genera_mappe.py                  # mappe basemap Webmapp + overlay SICAI
 ├── genera_copertine.py              # ritaglio foto copertina + lettura credits
+├── esporta_colore.py                # varianti PDF/X-4 CMYK e RGB + verifica PDF/X-4
 ├── verifica_tappe.py                # controllo salti numerazione per passaporto/regione
 ├── tests/test_libretto.py           # sequenza pagine del libretto unico A6 (pytest)
 ├── tests/test_imposizione.py        # box di stampa: abbondanze e segni di taglio (pytest)
+├── tests/test_esporta_colore.py     # varianti PDF/X-4 e verificatore (pytest)
 ├── estrai_tappe_passaporto.py       # tappe.xlsx → tappe_passaporto.xlsx
 ├── tappe.xlsx                       # export completo DB (sviluppo; in prod: PostgreSQL)
 ├── tappe_passaporto.xlsx            # fonte dati passaporto (rigenerare dopo tappe.xlsx)
@@ -351,6 +386,7 @@ progetto/
 ├── templates/raccoglitore.tex.j2    # template LaTeX del raccoglitore
 ├── assets/logo_cai.png              # ritagliato e con sfondo trasparente
 ├── assets/logo_sicai.png            # logo Sentiero Italia / SICAI
+├── assets/icc/                       # profili ICC: FOGRA39 (output) e sRGB2014
 ├── assets/copertine/<slug>/         # foto copertina per ogni passaporto (vedi sotto)
 ├── assets/sicai_tappe.geojson       # tracciato SICAI (overlay mappe)
 ├── assets/limits_IT_regions.geojson # confini delle 20 regioni (overlay mappe)
