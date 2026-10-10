@@ -95,7 +95,9 @@ piegato avvolge le 60 facciate interne e viene spillato con loro, per **64 facci
 in tutto** (4 di copertina + 60 interne). Alla copisteria vanno quindi due file,
 entrambi da `output/stampa_margini/`: l'interno (`libretto_A6_margini.pdf`) e la
 copertina (`0_raccoglitore_A5_stampa_margini.pdf`: foglio A5 aperto, fronte = retro
-e prima di copertina, retro = interno, con segno della piega di dorso), oppure gli
+e prima di copertina, retro = interno, con segno della piega di dorso; in alternativa
+`0_raccoglitore_A6_stampa_margini.pdf`, le stesse 4 facciate su pagine A6 singole in
+ordine di lettura), oppure gli
 stessi due file da `output/stampa_cmyk/` o `output/stampa_rgb/` se la copisteria
 chiede PDF/X-4 in CMYK o in RGB. Per questo `--all` rigenera anche il raccoglitore.
 
@@ -249,9 +251,14 @@ pip install cairosvg   # conversione QR SVG → PNG per XeLaTeX
 python genera_raccoglitore.py   # solo il raccoglitore (--all lo genera già)
 ```
 
-Produce in `output/`: `0_raccoglitore_A6.pdf`,
-`0_raccoglitore_A5_stampa.pdf` (al vivo) e
-`0_raccoglitore_A5_stampa_margini.pdf` (per la tipografia: abbondanze e segni di taglio).
+Produce in `output/`: `0_raccoglitore_A6.pdf` e, per la stampa, il raccoglitore
+in due formati, ciascuno al vivo e per la tipografia (abbondanze e segni di taglio),
+più le varianti PDF/X-4 CMYK e RGB:
+
+| Formato | Al vivo | Per la tipografia |
+|---|---|---|
+| foglio **A5** aperto, imposto per la piega | `0_raccoglitore_A5_stampa.pdf` | `0_raccoglitore_A5_stampa_margini.pdf` (+ `_cmyk`, `_rgb`) |
+| **A6 su pagine singole**, 4 facciate in ordine di lettura | `0_raccoglitore_A6_stampa.pdf` | `0_raccoglitore_A6_stampa_margini.pdf` (+ `_cmyk`, `_rgb`) |
 
 Le 4 facciate logiche (ordine sequenziale A6, imposte con
 `imponi_su_a5`):

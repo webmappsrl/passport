@@ -39,6 +39,7 @@ from genera_passaporto import (
     OUTPUT_DIR,
     compila_xelatex,
     imponi_su_a5,
+    imponi_su_a6,
     pubblica_pdf_stampa,
     pubblica_varianti_colore,
     renderizza_tex,
@@ -75,6 +76,9 @@ def genera_raccoglitore(output_dir: Path = OUTPUT_DIR) -> dict:
     out_a6 = output_dir / "0_raccoglitore_A6.pdf"
     out_stampa = output_dir / "0_raccoglitore_A5_stampa.pdf"
     out_stampa_margini = output_dir / "0_raccoglitore_A5_stampa_margini.pdf"
+    # stesse 4 facciate su pagine A6 singole, in ordine di lettura
+    out_a6_stampa = output_dir / "0_raccoglitore_A6_stampa.pdf"
+    out_a6_stampa_margini = output_dir / "0_raccoglitore_A6_stampa_margini.pdf"
 
     # mappa dell'intero percorso SICAI (path senza underscore: il
     # finalize Jinja applica l'escaping LaTeX alle stringhe del contesto)
@@ -95,24 +99,32 @@ def genera_raccoglitore(output_dir: Path = OUTPUT_DIR) -> dict:
 
     n_fogli = imponi_su_a5(out_a6, out_stampa)                    # al vivo
     imponi_su_a5(out_a6, out_stampa_margini, segni_taglio=True)   # per la tipografia
+    imponi_su_a6(out_a6, out_a6_stampa)                           # A6 singole, al vivo
+    imponi_su_a6(out_a6, out_a6_stampa_margini, segni_taglio=True)
 
-    pubblica_pdf_stampa(out_stampa, DIR_STAMPA)
-    pubblica_pdf_stampa(out_stampa_margini, DIR_STAMPA_MARGINI)
-    pubblica_varianti_colore(out_stampa_margini, "Raccoglitore del Camminatore (Sentiero Italia CAI)",
-                             output_dir)
+    titolo = "Raccoglitore del Camminatore (Sentiero Italia CAI)"
+    for al_vivo, margini in ((out_stampa, out_stampa_margini),
+                             (out_a6_stampa, out_a6_stampa_margini)):
+        pubblica_pdf_stampa(al_vivo, DIR_STAMPA)
+        pubblica_pdf_stampa(margini, DIR_STAMPA_MARGINI)
+        pubblica_varianti_colore(margini, titolo, output_dir)
 
     info = {
         "fogli": n_fogli,
         "pdf_a6": out_a6,
         "pdf_stampa": out_stampa,
         "pdf_stampa_margini": out_stampa_margini,
+        "pdf_a6_stampa": out_a6_stampa,
+        "pdf_a6_stampa_margini": out_a6_stampa_margini,
     }
     print(
         f"✔ Raccoglitore del Camminatore: 4 facciate, "
         f"{n_fogli} foglio A5 fronte/retro\n"
         f"  → {out_a6.name}\n  → {out_stampa.name} (al vivo)\n"
         f"  → {out_stampa_margini.name} (abbondanze {ABBONDANZA_MM} mm + segni di taglio)\n"
-        f"  → varianti PDF/X-4 in stampa_cmyk/ e stampa_rgb/"
+        f"  → {out_a6_stampa.name} (A6 singole, al vivo)\n"
+        f"  → {out_a6_stampa_margini.name} (A6 singole, abbondanze + segni di taglio)\n"
+        f"  → varianti PDF/X-4 (A5 e A6) in stampa_cmyk/ e stampa_rgb/"
     )
     return info
 
