@@ -803,13 +803,13 @@ def rimuovi_libretto(output_dir: Path = OUTPUT_DIR) -> bool:
 DIR_LIBRETTO_KIT = "libretto_A6"
 LIBRETTO_KIT = {
     # cartella: (cartella sorgente, interno, copertina)
-    "libretto_A6_stampa": ("stampa", "libretto_A6.pdf", "0_raccoglitore_A6_stampa.pdf"),
+    "libretto_A6_stampa": ("stampa", "libretto_A6.pdf", "raccoglitore_A6_stampa.pdf"),
     "libretto_A6_stampa_margini": ("stampa_margini", "libretto_A6_margini.pdf",
-                                   "0_raccoglitore_A6_stampa_margini.pdf"),
+                                   "raccoglitore_A6_stampa_margini.pdf"),
     "libretto_A6_stampa_cmyk": ("stampa_cmyk", "libretto_A6_cmyk.pdf",
-                                "0_raccoglitore_A6_stampa_cmyk.pdf"),
+                                "raccoglitore_A6_stampa_cmyk.pdf"),
     "libretto_A6_stampa_rgb": ("stampa_rgb", "libretto_A6_rgb.pdf",
-                               "0_raccoglitore_A6_stampa_rgb.pdf"),
+                               "raccoglitore_A6_stampa_rgb.pdf"),
 }
 
 

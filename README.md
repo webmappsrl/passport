@@ -50,10 +50,10 @@ con i soli due file da mandare per il libretto (interno + copertina):
 
 | Cartella | Interno | Copertina |
 |---|---|---|
-| `libretto_A6_stampa/` | `libretto_A6.pdf` | `0_raccoglitore_A6_stampa.pdf` (al vivo) |
-| `libretto_A6_stampa_margini/` | `libretto_A6_margini.pdf` | `0_raccoglitore_A6_stampa_margini.pdf` (abbondanze + crocini) |
-| `libretto_A6_stampa_cmyk/` | `libretto_A6_cmyk.pdf` | `0_raccoglitore_A6_stampa_cmyk.pdf` (PDF/X-4 CMYK) |
-| `libretto_A6_stampa_rgb/` | `libretto_A6_rgb.pdf` | `0_raccoglitore_A6_stampa_rgb.pdf` (PDF/X-4 RGB) |
+| `libretto_A6_stampa/` | `libretto_A6.pdf` | `raccoglitore_A6_stampa.pdf` (al vivo) |
+| `libretto_A6_stampa_margini/` | `libretto_A6_margini.pdf` | `raccoglitore_A6_stampa_margini.pdf` (abbondanze + crocini) |
+| `libretto_A6_stampa_cmyk/` | `libretto_A6_cmyk.pdf` | `raccoglitore_A6_stampa_cmyk.pdf` (PDF/X-4 CMYK) |
+| `libretto_A6_stampa_rgb/` | `libretto_A6_rgb.pdf` | `raccoglitore_A6_stampa_rgb.pdf` (PDF/X-4 RGB) |
 
 Le cartelle sono copie dei file delle cartelle piatte, ricomposte da zero a ogni
 generazione del raccoglitore (quindi con `--all`), e cancellate insieme al
@@ -62,7 +62,9 @@ libretto quando questo non è più allineato.
 I PDF per gruppo in `output/<N>_<slug>/` (inclusi gli A6 per verifica a video)
 restano disponibili come prima. I nomi file hanno un **prefisso numerico**
 nell'ordine SICAI (`0` = raccoglitore, `1`–`9` = passaporti come nel foglio
-**Riepilogo per Gruppo**).
+**Riepilogo per Gruppo**). Fanno eccezione i file del libretto unico e della sua
+copertina su pagine A6 singole (`libretto_A6*.pdf`, `raccoglitore_A6_stampa*.pdf`),
+senza prefisso.
 
 | File | Contenuto |
 |---|---|
@@ -111,7 +113,7 @@ in tutto** (4 di copertina + 60 interne). Alla copisteria vanno quindi due file,
 entrambi da `output/stampa_margini/`: l'interno (`libretto_A6_margini.pdf`) e la
 copertina (`0_raccoglitore_A5_stampa_margini.pdf`: foglio A5 aperto, fronte = retro
 e prima di copertina, retro = interno, con segno della piega di dorso; in alternativa
-`0_raccoglitore_A6_stampa_margini.pdf`, le stesse 4 facciate su pagine A6 singole in
+`raccoglitore_A6_stampa_margini.pdf`, le stesse 4 facciate su pagine A6 singole in
 ordine di lettura), oppure gli
 stessi due file da `output/stampa_cmyk/` o `output/stampa_rgb/` se la copisteria
 chiede PDF/X-4 in CMYK o in RGB. Per questo `--all` rigenera anche il raccoglitore.
@@ -273,7 +275,7 @@ più le varianti PDF/X-4 CMYK e RGB:
 | Formato | Al vivo | Per la tipografia |
 |---|---|---|
 | foglio **A5** aperto, imposto per la piega | `0_raccoglitore_A5_stampa.pdf` | `0_raccoglitore_A5_stampa_margini.pdf` (+ `_cmyk`, `_rgb`) |
-| **A6 su pagine singole**, 4 facciate in ordine di lettura | `0_raccoglitore_A6_stampa.pdf` | `0_raccoglitore_A6_stampa_margini.pdf` (+ `_cmyk`, `_rgb`) |
+| **A6 su pagine singole**, 4 facciate in ordine di lettura | `raccoglitore_A6_stampa.pdf` | `raccoglitore_A6_stampa_margini.pdf` (+ `_cmyk`, `_rgb`) |
 
 Le 4 facciate logiche (ordine sequenziale A6, imposte con
 `imponi_su_a5`):

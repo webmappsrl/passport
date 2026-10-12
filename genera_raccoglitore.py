@@ -78,8 +78,8 @@ def genera_raccoglitore(output_dir: Path = OUTPUT_DIR) -> dict:
     out_stampa = output_dir / "0_raccoglitore_A5_stampa.pdf"
     out_stampa_margini = output_dir / "0_raccoglitore_A5_stampa_margini.pdf"
     # stesse 4 facciate su pagine A6 singole, in ordine di lettura
-    out_a6_stampa = output_dir / "0_raccoglitore_A6_stampa.pdf"
-    out_a6_stampa_margini = output_dir / "0_raccoglitore_A6_stampa_margini.pdf"
+    out_a6_stampa = output_dir / "raccoglitore_A6_stampa.pdf"
+    out_a6_stampa_margini = output_dir / "raccoglitore_A6_stampa_margini.pdf"
 
     # mappa dell'intero percorso SICAI (path senza underscore: il
     # finalize Jinja applica l'escaping LaTeX alle stringhe del contesto)
