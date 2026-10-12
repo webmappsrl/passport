@@ -43,17 +43,19 @@ file in root, senza sottocartelle per gruppo, **senza** PDF A6):
 | `output/stampa_margini/` | 9 passaporti + raccoglitore, versione **per la tipografia** con abbondanze e segni di taglio (`*_stampa_margini.pdf`), + `libretto_A6_margini.pdf` |
 | `output/stampa_cmyk/` | gli stessi file per la tipografia in **PDF/X-4 CMYK FOGRA39** (`*_cmyk.pdf`, `libretto_A6_cmyk.pdf`) — vedi [Varianti colore](#varianti-colore-pdfx-4) |
 | `output/stampa_rgb/` | gli stessi file per la tipografia in **PDF/X-4 RGB sRGB** (`*_rgb.pdf`, `libretto_A6_rgb.pdf`) |
-| `output/libretto_A6/` | **cartelle pronte da zippare** con solo il libretto A6 e la sua copertina (raccoglitore su pagine A6 singole), una per versione — vedi sotto |
+| `output/libretto_A6/` | **cartelle pronte da zippare** con solo il libretto A6 e la sua copertina (raccoglitore su pagine A6 singole e montato fronte/retro su A5), una per versione — vedi sotto |
 
 `output/libretto_A6/` contiene una sottocartella per versione di stampa, ognuna
-con i soli due file da mandare per il libretto (interno + copertina):
+con i soli file da mandare per il libretto: l'interno e la copertina (raccoglitore)
+in due forme, su pagine A6 singole e montata fronte/retro sul foglio A5 da piegare
+in A6 (la copisteria usa quella che le serve):
 
-| Cartella | Interno | Copertina |
-|---|---|---|
-| `libretto_A6_stampa/` | `libretto_A6.pdf` | `raccoglitore_A6_stampa.pdf` (al vivo) |
-| `libretto_A6_stampa_margini/` | `libretto_A6_margini.pdf` | `raccoglitore_A6_stampa_margini.pdf` (abbondanze + crocini) |
-| `libretto_A6_stampa_cmyk/` | `libretto_A6_cmyk.pdf` | `raccoglitore_A6_stampa_cmyk.pdf` (PDF/X-4 CMYK) |
-| `libretto_A6_stampa_rgb/` | `libretto_A6_rgb.pdf` | `raccoglitore_A6_stampa_rgb.pdf` (PDF/X-4 RGB) |
+| Cartella | Interno | Copertina A6 singole | Copertina A5 montata |
+|---|---|---|---|
+| `libretto_A6_stampa/` (al vivo) | `libretto_A6.pdf` | `raccoglitore_A6_stampa.pdf` | `0_raccoglitore_A5_stampa.pdf` |
+| `libretto_A6_stampa_margini/` (abbondanze + crocini) | `libretto_A6_margini.pdf` | `raccoglitore_A6_stampa_margini.pdf` | `0_raccoglitore_A5_stampa_margini.pdf` |
+| `libretto_A6_stampa_cmyk/` (PDF/X-4 CMYK) | `libretto_A6_cmyk.pdf` | `raccoglitore_A6_stampa_cmyk.pdf` | `0_raccoglitore_A5_stampa_cmyk.pdf` |
+| `libretto_A6_stampa_rgb/` (PDF/X-4 RGB) | `libretto_A6_rgb.pdf` | `raccoglitore_A6_stampa_rgb.pdf` | `0_raccoglitore_A5_stampa_rgb.pdf` |
 
 Le cartelle sono copie dei file delle cartelle piatte, ricomposte da zero a ogni
 generazione del raccoglitore (quindi con `--all`), e cancellate insieme al

@@ -799,22 +799,27 @@ def rimuovi_libretto(output_dir: Path = OUTPUT_DIR) -> bool:
 
 
 # Cartelle pronte da zippare: per ogni versione di stampa, solo l'interno del
-# libretto e la sua copertina (raccoglitore su pagine A6 singole).
+# libretto e la sua copertina (raccoglitore), sia su pagine A6 singole sia
+# montata fronte/retro sul foglio A5 da piegare.
 DIR_LIBRETTO_KIT = "libretto_A6"
 LIBRETTO_KIT = {
-    # cartella: (cartella sorgente, interno, copertina)
-    "libretto_A6_stampa": ("stampa", "libretto_A6.pdf", "raccoglitore_A6_stampa.pdf"),
+    # cartella: (cartella sorgente, interno, copertina A6 singole, copertina A5 montata)
+    "libretto_A6_stampa": ("stampa", "libretto_A6.pdf", "raccoglitore_A6_stampa.pdf",
+                           "0_raccoglitore_A5_stampa.pdf"),
     "libretto_A6_stampa_margini": ("stampa_margini", "libretto_A6_margini.pdf",
-                                   "raccoglitore_A6_stampa_margini.pdf"),
+                                   "raccoglitore_A6_stampa_margini.pdf",
+                                   "0_raccoglitore_A5_stampa_margini.pdf"),
     "libretto_A6_stampa_cmyk": ("stampa_cmyk", "libretto_A6_cmyk.pdf",
-                                "raccoglitore_A6_stampa_cmyk.pdf"),
+                                "raccoglitore_A6_stampa_cmyk.pdf",
+                                "0_raccoglitore_A5_stampa_cmyk.pdf"),
     "libretto_A6_stampa_rgb": ("stampa_rgb", "libretto_A6_rgb.pdf",
-                               "raccoglitore_A6_stampa_rgb.pdf"),
+                               "raccoglitore_A6_stampa_rgb.pdf",
+                               "0_raccoglitore_A5_stampa_rgb.pdf"),
 }
 
 
 def componi_cartelle_libretto(output_dir: Path = OUTPUT_DIR) -> list[Path]:
-    """Ricrea output/libretto_A6/<versione>/ con interno + copertina A6.
+    """Ricrea output/libretto_A6/<versione>/ con interno + copertina (A6 e A5).
 
     Le cartelle si ricompongono da zero dalle cartelle di stampa piatte, così
     non restano file vecchi; se il libretto non c'è (rimosso perché non più
