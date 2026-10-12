@@ -35,11 +35,13 @@ def test_piano_senza_note_disponibili():
 
 
 def test_cartelle_libretto(tmp_path):
-    from genera_passaporto import LIBRETTO_KIT, componi_cartelle_libretto
+    from genera_passaporto import (LIBRETTO_KIT, componi_cartelle_libretto,
+                                   nomi_cartella_libretto)
     for sorgente, *pdf in LIBRETTO_KIT.values():
         (tmp_path / sorgente).mkdir(exist_ok=True)
         for f in pdf:
-            (tmp_path / sorgente / f).write_bytes(b"%PDF")
+            # contenuto distinto per file: verifica che ogni copia venga dalla sorgente giusta
+            (tmp_path / sorgente / f).write_bytes(f"{sorgente}/{f}".encode())
     # un file vecchio nella cartella non deve sopravvivere alla ricomposizione
     vecchio = tmp_path / "libretto_A6" / "libretto_A6_stampa" / "vecchio.pdf"
     vecchio.parent.mkdir(parents=True)
@@ -48,9 +50,19 @@ def test_cartelle_libretto(tmp_path):
     cartelle = componi_cartelle_libretto(tmp_path)
     assert [c.name for c in cartelle] == list(LIBRETTO_KIT)
     for c in cartelle:
-        _, *pdf = LIBRETTO_KIT[c.name]
-        assert sorted(f.name for f in c.iterdir()) == sorted(f.removeprefix("0_") for f in pdf)
-        assert not any(f.name.startswith("0_") for f in c.iterdir())
+        sorgente, *pdf = LIBRETTO_KIT[c.name]
+        nomi = nomi_cartella_libretto(c.name)
+        assert sorted(f.name for f in c.iterdir()) == sorted(nomi)
+        for f, dest in zip(pdf, nomi):
+            assert (c / dest).read_bytes() == f"{sorgente}/{f}".encode()
+
+
+def test_nomi_cartella_cmyk():
+    from genera_passaporto import LIBRETTO_KIT, nomi_cartella_libretto
+    assert LIBRETTO_KIT["libretto_A6_stampa_margini"][0] == "stampa_cmyk"
+    assert nomi_cartella_libretto("libretto_A6_stampa_margini") == (
+        "libretto_A6_stampa_margini.pdf", "raccoglitore_A6_stampa_margini.pdf",
+        "raccoglitore_A5_stampa_margini.pdf")
 
 
 def test_cartelle_libretto_senza_libretto(tmp_path):

@@ -821,13 +821,21 @@ LIBRETTO_KIT = {
 }
 
 
+def nomi_cartella_libretto(cartella: str) -> tuple[str, str, str]:
+    """Nomi di interno, copertina A6 e copertina A5 dentro una cartella del libretto."""
+    versione = cartella.removeprefix("libretto_A6_")
+    return (f"libretto_A6_{versione}.pdf", f"raccoglitore_A6_{versione}.pdf",
+            f"raccoglitore_A5_{versione}.pdf")
+
+
 def componi_cartelle_libretto(output_dir: Path = OUTPUT_DIR) -> list[Path]:
     """Ricrea output/libretto_A6/<versione>/ con interno + copertina (A6 e A5).
 
     Le cartelle si ricompongono da zero dalle cartelle di stampa piatte, così
     non restano file vecchi; se il libretto non c'è (rimosso perché non più
-    allineato) non vengono create. Nelle cartelle i file perdono il prefisso
-    numerico "0_" (serve solo a ordinare le cartelle piatte), come il libretto.
+    allineato) non vengono create. Nelle cartelle i file prendono il nome
+    della versione: in libretto_A6_<versione>/ ci sono libretto_A6_<versione>.pdf,
+    raccoglitore_A6_<versione>.pdf e raccoglitore_A5_<versione>.pdf.
     Restituisce le cartelle scritte.
     """
     radice = output_dir / DIR_LIBRETTO_KIT
@@ -842,8 +850,8 @@ def componi_cartelle_libretto(output_dir: Path = OUTPUT_DIR) -> list[Path]:
             raise SystemExit(f"Cartella {nome}: mancano {mancanti} in output/{sorgente}/")
         cartella = radice / nome
         cartella.mkdir(parents=True)
-        for f in pdf:
-            shutil.copy2(output_dir / sorgente / f, cartella / f.removeprefix("0_"))
+        for f, dest in zip(pdf, nomi_cartella_libretto(nome)):
+            shutil.copy2(output_dir / sorgente / f, cartella / dest)
         scritte.append(cartella)
     return scritte
 

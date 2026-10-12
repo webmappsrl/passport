@@ -48,15 +48,20 @@ file in root, senza sottocartelle per gruppo, **senza** PDF A6):
 `output/libretto_A6/` contiene una sottocartella per versione di stampa, ognuna
 con i soli file da mandare per il libretto: l'interno e la copertina (raccoglitore)
 in due forme, su pagine A6 singole e montata fronte/retro sul foglio A5 da piegare
-in A6 (la copisteria usa quella che le serve). Come il libretto, nelle cartelle i
-file del raccoglitore sono senza prefisso numerico:
+in A6 (la copisteria usa quella che le serve). Nelle cartelle i file prendono il
+nome della versione: in `libretto_A6_<versione>/` ci sono `libretto_A6_<versione>.pdf`,
+`raccoglitore_A6_<versione>.pdf` e `raccoglitore_A5_<versione>.pdf`:
 
-| Cartella | Interno | Copertina A6 singole | Copertina A5 montata |
-|---|---|---|---|
-| `libretto_A6_stampa/` (al vivo) | `libretto_A6.pdf` | `raccoglitore_A6_stampa.pdf` | `raccoglitore_A5_stampa.pdf` |
-| `libretto_A6_stampa_margini_rgb/` (abbondanze + crocini, RGB senza profilo) | `libretto_A6_margini.pdf` | `raccoglitore_A6_stampa_margini.pdf` | `raccoglitore_A5_stampa_margini.pdf` |
-| `libretto_A6_stampa_margini/` (**PDF/X-4 CMYK**, la versione da mandare in stampa) | `libretto_A6_cmyk.pdf` | `raccoglitore_A6_stampa_cmyk.pdf` | `raccoglitore_A5_stampa_cmyk.pdf` |
-| `libretto_A6_stampa_srgb/` (PDF/X-4 RGB sRGB) | `libretto_A6_rgb.pdf` | `raccoglitore_A6_stampa_rgb.pdf` | `raccoglitore_A5_stampa_rgb.pdf` |
+| Cartella | Contenuto | Copiata da |
+|---|---|---|
+| `libretto_A6_stampa_margini/` | **PDF/X-4 CMYK** FOGRA39, abbondanze + crocini — **la versione da mandare in stampa** | `stampa_cmyk/` |
+| `libretto_A6_stampa_margini_rgb/` | abbondanze + crocini, RGB senza profilo | `stampa_margini/` |
+| `libretto_A6_stampa_srgb/` | PDF/X-4 con RGB dichiarato sRGB, abbondanze + crocini | `stampa_rgb/` |
+| `libretto_A6_stampa/` | al vivo, senza abbondanze né crocini | `stampa/` |
+
+Esempio: `libretto_A6_stampa_margini/` contiene `libretto_A6_stampa_margini.pdf`
+(interno, 60 pagine), `raccoglitore_A6_stampa_margini.pdf` (copertina, 4 pagine A6)
+e `raccoglitore_A5_stampa_margini.pdf` (copertina montata, foglio A5 fronte/retro).
 
 Le cartelle sono copie dei file delle cartelle piatte, ricomposte da zero a ogni
 generazione del raccoglitore (quindi con `--all`), e cancellate insieme al
