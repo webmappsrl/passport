@@ -55,7 +55,7 @@ file del raccoglitore sono senza prefisso numerico:
 |---|---|---|---|
 | `libretto_A6_stampa/` (al vivo) | `libretto_A6.pdf` | `raccoglitore_A6_stampa.pdf` | `raccoglitore_A5_stampa.pdf` |
 | `libretto_A6_stampa_margini_rgb/` (abbondanze + crocini, RGB senza profilo) | `libretto_A6_margini.pdf` | `raccoglitore_A6_stampa_margini.pdf` | `raccoglitore_A5_stampa_margini.pdf` |
-| `libretto_stampa_margini/` (**PDF/X-4 CMYK**, la versione da mandare in stampa) | `libretto_A6_cmyk.pdf` | `raccoglitore_A6_stampa_cmyk.pdf` | `raccoglitore_A5_stampa_cmyk.pdf` |
+| `libretto_A6_stampa_margini/` (**PDF/X-4 CMYK**, la versione da mandare in stampa) | `libretto_A6_cmyk.pdf` | `raccoglitore_A6_stampa_cmyk.pdf` | `raccoglitore_A5_stampa_cmyk.pdf` |
 | `libretto_A6_stampa_srgb/` (PDF/X-4 RGB sRGB) | `libretto_A6_rgb.pdf` | `raccoglitore_A6_stampa_rgb.pdf` | `raccoglitore_A5_stampa_rgb.pdf` |
 
 Le cartelle sono copie dei file delle cartelle piatte, ricomposte da zero a ogni
