@@ -801,18 +801,21 @@ def rimuovi_libretto(output_dir: Path = OUTPUT_DIR) -> bool:
 # Cartelle pronte da zippare: per ogni versione di stampa, solo l'interno del
 # libretto e la sua copertina (raccoglitore), sia su pagine A6 singole sia
 # montata fronte/retro sul foglio A5 da piegare.
+# La versione consigliata per la stampa (PDF/X-4 CMYK FOGRA39) è
+# libretto_stampa_margini; *_margini_rgb è la stessa senza conversione né profili,
+# *_srgb la PDF/X-4 con RGB dichiarato sRGB.
 DIR_LIBRETTO_KIT = "libretto_A6"
 LIBRETTO_KIT = {
     # cartella: (cartella sorgente, interno, copertina A6 singole, copertina A5 montata)
     "libretto_A6_stampa": ("stampa", "libretto_A6.pdf", "raccoglitore_A6_stampa.pdf",
                            "0_raccoglitore_A5_stampa.pdf"),
-    "libretto_A6_stampa_margini": ("stampa_margini", "libretto_A6_margini.pdf",
+    "libretto_A6_stampa_margini_rgb": ("stampa_margini", "libretto_A6_margini.pdf",
                                    "raccoglitore_A6_stampa_margini.pdf",
                                    "0_raccoglitore_A5_stampa_margini.pdf"),
-    "libretto_A6_stampa_cmyk": ("stampa_cmyk", "libretto_A6_cmyk.pdf",
+    "libretto_stampa_margini": ("stampa_cmyk", "libretto_A6_cmyk.pdf",
                                 "raccoglitore_A6_stampa_cmyk.pdf",
                                 "0_raccoglitore_A5_stampa_cmyk.pdf"),
-    "libretto_A6_stampa_rgb": ("stampa_rgb", "libretto_A6_rgb.pdf",
+    "libretto_A6_stampa_srgb": ("stampa_rgb", "libretto_A6_rgb.pdf",
                                "raccoglitore_A6_stampa_rgb.pdf",
                                "0_raccoglitore_A5_stampa_rgb.pdf"),
 }
