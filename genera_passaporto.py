@@ -823,7 +823,9 @@ def componi_cartelle_libretto(output_dir: Path = OUTPUT_DIR) -> list[Path]:
 
     Le cartelle si ricompongono da zero dalle cartelle di stampa piatte, così
     non restano file vecchi; se il libretto non c'è (rimosso perché non più
-    allineato) non vengono create. Restituisce le cartelle scritte.
+    allineato) non vengono create. Nelle cartelle i file perdono il prefisso
+    numerico "0_" (serve solo a ordinare le cartelle piatte), come il libretto.
+    Restituisce le cartelle scritte.
     """
     radice = output_dir / DIR_LIBRETTO_KIT
     if radice.exists():
@@ -838,7 +840,7 @@ def componi_cartelle_libretto(output_dir: Path = OUTPUT_DIR) -> list[Path]:
         cartella = radice / nome
         cartella.mkdir(parents=True)
         for f in pdf:
-            shutil.copy2(output_dir / sorgente / f, cartella / f)
+            shutil.copy2(output_dir / sorgente / f, cartella / f.removeprefix("0_"))
         scritte.append(cartella)
     return scritte
 

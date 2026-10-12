@@ -48,14 +48,15 @@ file in root, senza sottocartelle per gruppo, **senza** PDF A6):
 `output/libretto_A6/` contiene una sottocartella per versione di stampa, ognuna
 con i soli file da mandare per il libretto: l'interno e la copertina (raccoglitore)
 in due forme, su pagine A6 singole e montata fronte/retro sul foglio A5 da piegare
-in A6 (la copisteria usa quella che le serve):
+in A6 (la copisteria usa quella che le serve). Come il libretto, nelle cartelle i
+file del raccoglitore sono senza prefisso numerico:
 
 | Cartella | Interno | Copertina A6 singole | Copertina A5 montata |
 |---|---|---|---|
-| `libretto_A6_stampa/` (al vivo) | `libretto_A6.pdf` | `raccoglitore_A6_stampa.pdf` | `0_raccoglitore_A5_stampa.pdf` |
-| `libretto_A6_stampa_margini/` (abbondanze + crocini) | `libretto_A6_margini.pdf` | `raccoglitore_A6_stampa_margini.pdf` | `0_raccoglitore_A5_stampa_margini.pdf` |
-| `libretto_A6_stampa_cmyk/` (PDF/X-4 CMYK) | `libretto_A6_cmyk.pdf` | `raccoglitore_A6_stampa_cmyk.pdf` | `0_raccoglitore_A5_stampa_cmyk.pdf` |
-| `libretto_A6_stampa_rgb/` (PDF/X-4 RGB) | `libretto_A6_rgb.pdf` | `raccoglitore_A6_stampa_rgb.pdf` | `0_raccoglitore_A5_stampa_rgb.pdf` |
+| `libretto_A6_stampa/` (al vivo) | `libretto_A6.pdf` | `raccoglitore_A6_stampa.pdf` | `raccoglitore_A5_stampa.pdf` |
+| `libretto_A6_stampa_margini/` (abbondanze + crocini) | `libretto_A6_margini.pdf` | `raccoglitore_A6_stampa_margini.pdf` | `raccoglitore_A5_stampa_margini.pdf` |
+| `libretto_A6_stampa_cmyk/` (PDF/X-4 CMYK) | `libretto_A6_cmyk.pdf` | `raccoglitore_A6_stampa_cmyk.pdf` | `raccoglitore_A5_stampa_cmyk.pdf` |
+| `libretto_A6_stampa_rgb/` (PDF/X-4 RGB) | `libretto_A6_rgb.pdf` | `raccoglitore_A6_stampa_rgb.pdf` | `raccoglitore_A5_stampa_rgb.pdf` |
 
 Le cartelle sono copie dei file delle cartelle piatte, ricomposte da zero a ogni
 generazione del raccoglitore (quindi con `--all`), e cancellate insieme al

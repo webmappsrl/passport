@@ -49,7 +49,8 @@ def test_cartelle_libretto(tmp_path):
     assert [c.name for c in cartelle] == list(LIBRETTO_KIT)
     for c in cartelle:
         _, *pdf = LIBRETTO_KIT[c.name]
-        assert sorted(f.name for f in c.iterdir()) == sorted(pdf)
+        assert sorted(f.name for f in c.iterdir()) == sorted(f.removeprefix("0_") for f in pdf)
+        assert not any(f.name.startswith("0_") for f in c.iterdir())
 
 
 def test_cartelle_libretto_senza_libretto(tmp_path):
