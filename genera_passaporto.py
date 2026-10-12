@@ -792,7 +792,50 @@ def rimuovi_libretto(output_dir: Path = OUTPUT_DIR) -> bool:
         if pdf.exists():
             pdf.unlink()
             rimossi = True
+    if (output_dir / DIR_LIBRETTO_KIT).exists():
+        shutil.rmtree(output_dir / DIR_LIBRETTO_KIT)
+        rimossi = True
     return rimossi
+
+
+# Cartelle pronte da zippare: per ogni versione di stampa, solo l'interno del
+# libretto e la sua copertina (raccoglitore su pagine A6 singole).
+DIR_LIBRETTO_KIT = "libretto_A6"
+LIBRETTO_KIT = {
+    # cartella: (cartella sorgente, interno, copertina)
+    "libretto_A6_stampa": ("stampa", "libretto_A6.pdf", "0_raccoglitore_A6_stampa.pdf"),
+    "libretto_A6_stampa_margini": ("stampa_margini", "libretto_A6_margini.pdf",
+                                   "0_raccoglitore_A6_stampa_margini.pdf"),
+    "libretto_A6_stampa_cmyk": ("stampa_cmyk", "libretto_A6_cmyk.pdf",
+                                "0_raccoglitore_A6_stampa_cmyk.pdf"),
+    "libretto_A6_stampa_rgb": ("stampa_rgb", "libretto_A6_rgb.pdf",
+                               "0_raccoglitore_A6_stampa_rgb.pdf"),
+}
+
+
+def componi_cartelle_libretto(output_dir: Path = OUTPUT_DIR) -> list[Path]:
+    """Ricrea output/libretto_A6/<versione>/ con interno + copertina A6.
+
+    Le cartelle si ricompongono da zero dalle cartelle di stampa piatte, così
+    non restano file vecchi; se il libretto non c'è (rimosso perché non più
+    allineato) non vengono create. Restituisce le cartelle scritte.
+    """
+    radice = output_dir / DIR_LIBRETTO_KIT
+    if radice.exists():
+        shutil.rmtree(radice)
+    if not (output_dir / "stampa" / LIBRETTO_A6.name).exists():
+        return []
+    scritte = []
+    for nome, (sorgente, *pdf) in LIBRETTO_KIT.items():
+        mancanti = [f for f in pdf if not (output_dir / sorgente / f).exists()]
+        if mancanti:
+            raise SystemExit(f"Cartella {nome}: mancano {mancanti} in output/{sorgente}/")
+        cartella = radice / nome
+        cartella.mkdir(parents=True)
+        for f in pdf:
+            shutil.copy2(output_dir / sorgente / f, cartella / f)
+        scritte.append(cartella)
+    return scritte
 
 
 def genera_libretto(infos: list[dict], output_dir: Path = OUTPUT_DIR) -> None:

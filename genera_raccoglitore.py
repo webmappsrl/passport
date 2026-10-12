@@ -38,6 +38,7 @@ from genera_passaporto import (
     MAPPA_CREDIT,
     OUTPUT_DIR,
     compila_xelatex,
+    componi_cartelle_libretto,
     imponi_su_a5,
     imponi_su_a6,
     pubblica_pdf_stampa,
@@ -126,6 +127,13 @@ def genera_raccoglitore(output_dir: Path = OUTPUT_DIR) -> dict:
         f"  → {out_a6_stampa_margini.name} (A6 singole, abbondanze + segni di taglio)\n"
         f"  → varianti PDF/X-4 (A5 e A6) in stampa_cmyk/ e stampa_rgb/"
     )
+    # il raccoglitore A6 è la copertina del libretto: le cartelle da zippare
+    # si ricompongono a ogni sua generazione (solo se il libretto esiste)
+    cartelle = componi_cartelle_libretto(output_dir)
+    if cartelle:
+        print("✔ Libretto + copertina A6, cartelle pronte da zippare in "
+              f"{output_dir.name}/libretto_A6/:\n"
+              + "\n".join(f"  → {c.name}/" for c in cartelle))
     return info
 
 

@@ -43,6 +43,21 @@ file in root, senza sottocartelle per gruppo, **senza** PDF A6):
 | `output/stampa_margini/` | 9 passaporti + raccoglitore, versione **per la tipografia** con abbondanze e segni di taglio (`*_stampa_margini.pdf`), + `libretto_A6_margini.pdf` |
 | `output/stampa_cmyk/` | gli stessi file per la tipografia in **PDF/X-4 CMYK FOGRA39** (`*_cmyk.pdf`, `libretto_A6_cmyk.pdf`) — vedi [Varianti colore](#varianti-colore-pdfx-4) |
 | `output/stampa_rgb/` | gli stessi file per la tipografia in **PDF/X-4 RGB sRGB** (`*_rgb.pdf`, `libretto_A6_rgb.pdf`) |
+| `output/libretto_A6/` | **cartelle pronte da zippare** con solo il libretto A6 e la sua copertina (raccoglitore su pagine A6 singole), una per versione — vedi sotto |
+
+`output/libretto_A6/` contiene una sottocartella per versione di stampa, ognuna
+con i soli due file da mandare per il libretto (interno + copertina):
+
+| Cartella | Interno | Copertina |
+|---|---|---|
+| `libretto_A6_stampa/` | `libretto_A6.pdf` | `0_raccoglitore_A6_stampa.pdf` (al vivo) |
+| `libretto_A6_stampa_margini/` | `libretto_A6_margini.pdf` | `0_raccoglitore_A6_stampa_margini.pdf` (abbondanze + crocini) |
+| `libretto_A6_stampa_cmyk/` | `libretto_A6_cmyk.pdf` | `0_raccoglitore_A6_stampa_cmyk.pdf` (PDF/X-4 CMYK) |
+| `libretto_A6_stampa_rgb/` | `libretto_A6_rgb.pdf` | `0_raccoglitore_A6_stampa_rgb.pdf` (PDF/X-4 RGB) |
+
+Le cartelle sono copie dei file delle cartelle piatte, ricomposte da zero a ogni
+generazione del raccoglitore (quindi con `--all`), e cancellate insieme al
+libretto quando questo non è più allineato.
 
 I PDF per gruppo in `output/<N>_<slug>/` (inclusi gli A6 per verifica a video)
 restano disponibili come prima. I nomi file hanno un **prefisso numerico**

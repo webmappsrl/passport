@@ -32,3 +32,28 @@ def test_piano_ultimo_gruppo_pari():
 def test_piano_senza_note_disponibili():
     with pytest.raises(ValueError):
         piano_libretto([("A", 3, 0), ("B", 7, 0)])
+
+
+def test_cartelle_libretto(tmp_path):
+    from genera_passaporto import LIBRETTO_KIT, componi_cartelle_libretto
+    for sorgente, *pdf in LIBRETTO_KIT.values():
+        (tmp_path / sorgente).mkdir(exist_ok=True)
+        for f in pdf:
+            (tmp_path / sorgente / f).write_bytes(b"%PDF")
+    # un file vecchio nella cartella non deve sopravvivere alla ricomposizione
+    vecchio = tmp_path / "libretto_A6" / "libretto_A6_stampa" / "vecchio.pdf"
+    vecchio.parent.mkdir(parents=True)
+    vecchio.write_bytes(b"%PDF")
+
+    cartelle = componi_cartelle_libretto(tmp_path)
+    assert [c.name for c in cartelle] == list(LIBRETTO_KIT)
+    for c in cartelle:
+        _, *pdf = LIBRETTO_KIT[c.name]
+        assert sorted(f.name for f in c.iterdir()) == sorted(pdf)
+
+
+def test_cartelle_libretto_senza_libretto(tmp_path):
+    from genera_passaporto import componi_cartelle_libretto
+    (tmp_path / "libretto_A6" / "libretto_A6_stampa").mkdir(parents=True)
+    assert componi_cartelle_libretto(tmp_path) == []
+    assert not (tmp_path / "libretto_A6").exists()
